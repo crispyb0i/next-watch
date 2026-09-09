@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { searchMovies, posterUrl } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaCard from "./MediaCard";
+import Trending from "./Trending";
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value);
@@ -73,46 +74,47 @@ function MovieSearchInner() {
     enabled: debouncedQuery.length > 0,
   });
 
+  const isSearchActive = debouncedQuery.length > 0;
+
   const showEmptyState =
-    debouncedQuery.length > 0 &&
-    !isFetching &&
-    !isError &&
-    movies?.length === 0;
+    isSearchActive && !isFetching && !isError && movies?.length === 0;
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <div className="relative">
-        <span className="text-text-muted pointer-events-none absolute inset-y-0 left-4 flex items-center">
-          <SearchIcon />
-        </span>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search movies..."
-          className="border-border bg-surface text-text-primary placeholder:text-text-muted focus:border-accent focus:ring-accent/30 w-full rounded-full border py-3.5 pr-12 pl-12 text-base shadow-sm transition outline-none focus:ring-4"
-        />
-        {isFetching && (
-          <span className="absolute inset-y-0 right-4 flex items-center">
-            <Spinner />
+    <div className="w-full">
+      <div className="mx-auto w-full max-w-2xl">
+        <div className="group relative">
+          <span className="text-text-muted group-focus-within:text-accent pointer-events-none absolute inset-y-0 left-5 flex items-center transition">
+            <SearchIcon />
           </span>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search movies..."
+            className="border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted shadow-card focus:border-accent focus:ring-accent/25 w-full rounded-2xl border py-4 pr-12 pl-13 text-base backdrop-blur-xl transition outline-none focus:ring-4"
+          />
+          {isFetching && (
+            <span className="absolute inset-y-0 right-4 flex items-center">
+              <Spinner />
+            </span>
+          )}
+        </div>
+
+        {isError && (
+          <p className="rounded-card bg-danger-surface/60 text-danger border-danger/40 mt-6 border px-4 py-3 text-center text-sm">
+            Something went wrong. Try again.
+          </p>
+        )}
+
+        {showEmptyState && (
+          <p className="text-text-muted mt-6 text-center text-sm">
+            No results for “{debouncedQuery}”.
+          </p>
         )}
       </div>
 
-      {isError && (
-        <p className="rounded-card mt-6 border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
-          Something went wrong. Try again.
-        </p>
-      )}
-
-      {showEmptyState && (
-        <p className="text-text-muted mt-6 text-center text-sm">
-          No results for “{debouncedQuery}”.
-        </p>
-      )}
-
       {movies && movies.length > 0 && (
-        <ul className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+        <ul className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {movies.map((movie) => (
             <MediaCard
               key={movie.id}
@@ -120,9 +122,16 @@ function MovieSearchInner() {
               title={movie.title}
               subtitle={movie.release_date?.slice(0, 4)}
               poster={posterUrl(movie.poster_path)}
+              rating={movie.vote_average}
             />
           ))}
         </ul>
+      )}
+
+      {!isSearchActive && (
+        <div className="mt-20">
+          <Trending />
+        </div>
       )}
     </div>
   );

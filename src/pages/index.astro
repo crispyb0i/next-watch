@@ -2,14 +2,10 @@
 import Welcome from "../components/Welcome.astro";
 import Layout from "../layouts/Layout.astro";
 import MovieSearch from "../components/MovieSearch.tsx";
-import Trending from "../components/Trending.tsx";
 import "../styles/global.css";
 ---
 
 <Layout>
   <Welcome />
   <MovieSearch client:load />
-  <div class="mt-16">
-    <Trending client:load />
-  </div>
 </Layout>
