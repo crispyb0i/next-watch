@@ -1,0 +1,9 @@
+---
+import Layout from "../layouts/Layout.astro";
+import PersonDetail from "../components/PersonDetail.tsx";
+import "../styles/global.css";
+---
+
+<Layout>
+  <PersonDetail client:load />
+</Layout>

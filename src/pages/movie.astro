@@ -1,0 +1,9 @@
+---
+import Layout from "../layouts/Layout.astro";
+import MovieDetail from "../components/MovieDetail.tsx";
+import "../styles/global.css";
+---
+
+<Layout>
+  <MovieDetail client:load />
+</Layout>

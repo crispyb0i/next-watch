@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  /* brand palette */
+  --color-brand-50: oklch(0.97 0.02 250);
+  --color-brand-100: oklch(0.93 0.04 250);
+  --color-brand-500: oklch(0.58 0.18 250);
+  --color-brand-600: oklch(0.5 0.19 250);
+  --color-brand-900: oklch(0.28 0.1 250);
+
+  /* type */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* radius */
+  --radius-card: 0.75rem;
+
+  /* semantic aliases — components should use these, not raw brand/gray shades */
+  --color-surface: var(--color-white);
+  --color-surface-muted: var(--color-gray-50);
+  --color-border: var(--color-gray-200);
+  --color-text-primary: var(--color-gray-900);
+  --color-text-muted: var(--color-gray-500);
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: var(--color-brand-600);
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-surface: var(--color-gray-900);
+    --color-surface-muted: var(--color-gray-800);
+    --color-border: var(--color-gray-700);
+    --color-text-primary: var(--color-gray-50);
+    --color-text-muted: var(--color-gray-400);
+    --color-accent: var(--color-brand-500);
+    --color-accent-hover: var(--color-brand-100);
+  }
+}
