@@ -6,6 +6,7 @@ export interface Movie {
   release_date: string;
   poster_path: string | null;
   overview: string;
+  vote_average: number;
 }
 
 export interface TvShow {
@@ -14,6 +15,7 @@ export interface TvShow {
   first_air_date: string;
   poster_path: string | null;
   overview: string;
+  vote_average: number;
 }
 
 export interface Genre {

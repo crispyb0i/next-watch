@@ -17,15 +17,17 @@ export function CastGrid({ cast }: { cast: CastMember[] }) {
   if (cast.length === 0) return null;
 
   return (
-    <div className="mt-10">
-      <h2 className="text-text-primary text-lg font-bold">Cast</h2>
-      <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+    <div className="mt-14">
+      <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
+        Cast
+      </h2>
+      <ul className="mt-6 grid grid-cols-3 gap-5 sm:grid-cols-4 md:grid-cols-6">
         {cast.slice(0, 12).map((member) => {
           const photo = profileUrl(member.profile_path);
           return (
             <li key={member.id} className="text-center">
               <a href={`/person?id=${member.id}`} className="group block">
-                <div className="bg-surface-muted border-border group-hover:border-accent/50 mx-auto aspect-square w-full overflow-hidden rounded-full border transition">
+                <div className="bg-surface-muted border-border/60 group-hover:border-accent group-hover:shadow-accent/25 mx-auto aspect-square w-full overflow-hidden rounded-full border transition group-hover:shadow-lg">
                   {photo ? (
                     <img
                       src={photo}
@@ -76,15 +78,16 @@ export default function MediaDetail({
   cast: CastMember[];
 }) {
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div className="w-full">
       {backdrop && (
-        <div className="rounded-card mb-8 aspect-video overflow-hidden">
+        <div className="border-border/50 relative mb-8 aspect-video overflow-hidden rounded-3xl border">
           <img src={backdrop} alt="" className="h-full w-full object-cover" />
+          <div className="from-surface via-surface/40 absolute inset-0 bg-linear-to-t to-transparent" />
         </div>
       )}
 
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <div className="bg-surface-muted rounded-card w-40 shrink-0 overflow-hidden sm:w-48">
+      <div className="flex flex-col gap-8 sm:flex-row sm:items-start">
+        <div className="bg-surface-muted shadow-card border-border/60 w-40 shrink-0 overflow-hidden rounded-2xl border sm:w-52">
           {poster ? (
             <img
               src={poster}
@@ -99,30 +102,30 @@ export default function MediaDetail({
         </div>
 
         <div className="min-w-0">
-          <h1 className="text-text-primary text-2xl font-extrabold tracking-tight sm:text-3xl">
+          <h1 className="text-text-primary text-3xl font-black tracking-tighter text-balance sm:text-4xl">
             {title}
           </h1>
           {tagline && (
-            <p className="text-text-muted mt-1 text-sm italic">{tagline}</p>
+            <p className="text-text-muted mt-2 text-sm italic">{tagline}</p>
           )}
 
-          <div className="text-text-muted mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <div className="text-text-muted mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
             {meta.map((item) => (
               <span key={item}>{item}</span>
             ))}
             {voteAverage > 0 && (
-              <span className="text-accent font-semibold">
+              <span className="text-star border-star/30 bg-star/10 rounded-full border px-2.5 py-0.5 font-bold">
                 ★ {voteAverage.toFixed(1)}
               </span>
             )}
           </div>
 
           {genres.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {genres.map((genre) => (
                 <span
                   key={genre}
-                  className="bg-accent/10 text-accent rounded-full px-3 py-1 text-xs font-semibold"
+                  className="bg-accent/15 text-accent-hover ring-accent/25 rounded-full px-3 py-1 text-xs font-semibold ring-1"
                 >
                   {genre}
                 </span>
@@ -131,9 +134,7 @@ export default function MediaDetail({
           )}
 
           {overview && (
-            <p className="text-text-primary mt-4 text-sm leading-relaxed">
-              {overview}
-            </p>
+            <p className="text-text-muted mt-5 leading-relaxed">{overview}</p>
           )}
         </div>
       </div>

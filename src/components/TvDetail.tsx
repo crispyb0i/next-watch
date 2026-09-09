@@ -20,7 +20,7 @@ function TvDetailInner({ tvId }: { tvId: number }) {
 
   if (detailsQuery.isError) {
     return (
-      <p className="rounded-card mx-auto max-w-3xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+      <p className="rounded-card bg-danger-surface/60 text-danger border-danger/40 mx-auto max-w-3xl border px-4 py-3 text-center text-sm">
         Couldn't load this show.
       </p>
     );

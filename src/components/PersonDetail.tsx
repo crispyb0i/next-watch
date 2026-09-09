@@ -28,9 +28,11 @@ function Filmography({ personId }: { personId: number }) {
     });
 
   return (
-    <div className="mt-10">
-      <h2 className="text-text-primary text-lg font-bold">Known for</h2>
-      <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+    <div className="mt-14">
+      <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
+        Known for
+      </h2>
+      <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {sorted
           .slice(0, 12)
           .map((item) =>
@@ -41,6 +43,7 @@ function Filmography({ personId }: { personId: number }) {
                 title={item.title}
                 subtitle={item.release_date?.slice(0, 4)}
                 poster={posterUrl(item.poster_path)}
+                rating={item.vote_average}
               />
             ) : (
               <MediaCard
@@ -49,6 +52,7 @@ function Filmography({ personId }: { personId: number }) {
                 title={item.name}
                 subtitle={item.first_air_date?.slice(0, 4)}
                 poster={posterUrl(item.poster_path)}
+                rating={item.vote_average}
               />
             ),
           )}
@@ -65,7 +69,7 @@ function PersonDetailInner({ personId }: { personId: number }) {
 
   if (isError) {
     return (
-      <p className="rounded-card mx-auto max-w-3xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+      <p className="rounded-card bg-danger-surface/60 text-danger border-danger/40 mx-auto max-w-3xl border px-4 py-3 text-center text-sm">
         Couldn't load this person.
       </p>
     );
@@ -84,9 +88,9 @@ function PersonDetailInner({ personId }: { personId: number }) {
   ].filter((item): item is string => Boolean(item));
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <div className="bg-surface-muted rounded-card w-40 shrink-0 overflow-hidden sm:w-48">
+    <div className="w-full">
+      <div className="flex flex-col gap-8 sm:flex-row sm:items-start">
+        <div className="bg-surface-muted shadow-card border-border/60 w-40 shrink-0 overflow-hidden rounded-2xl border sm:w-52">
           {photo ? (
             <img
               src={photo}
@@ -101,7 +105,7 @@ function PersonDetailInner({ personId }: { personId: number }) {
         </div>
 
         <div className="min-w-0">
-          <h1 className="text-text-primary text-2xl font-extrabold tracking-tight sm:text-3xl">
+          <h1 className="text-text-primary text-3xl font-black tracking-tighter sm:text-4xl">
             {person.name}
           </h1>
 
@@ -112,7 +116,7 @@ function PersonDetailInner({ personId }: { personId: number }) {
           </div>
 
           {person.biography && (
-            <p className="text-text-primary mt-4 text-sm leading-relaxed whitespace-pre-line">
+            <p className="text-text-muted mt-5 leading-relaxed whitespace-pre-line">
               {person.biography}
             </p>
           )}

@@ -1,37 +1,78 @@
+@import "@neondatabase/auth-ui/css" layer(vendor);
 @import "tailwindcss";
 
 @theme {
-  /* brand palette */
-  --color-brand-50: oklch(0.97 0.02 250);
-  --color-brand-100: oklch(0.93 0.04 250);
-  --color-brand-500: oklch(0.58 0.18 250);
-  --color-brand-600: oklch(0.5 0.19 250);
-  --color-brand-900: oklch(0.28 0.1 250);
+  /* brand palette — electric violet */
+  --color-brand-50: oklch(0.97 0.02 295);
+  --color-brand-100: oklch(0.92 0.05 295);
+  --color-brand-400: oklch(0.72 0.19 295);
+  --color-brand-500: oklch(0.65 0.21 295);
+  --color-brand-600: oklch(0.56 0.22 295);
+  --color-brand-900: oklch(0.3 0.13 295);
+
+  /* ink palette — cool near-neutrals for surfaces */
+  --color-ink-50: oklch(0.98 0.004 290);
+  --color-ink-100: oklch(0.96 0.006 290);
+  --color-ink-200: oklch(0.91 0.008 290);
+  --color-ink-400: oklch(0.62 0.015 290);
+  --color-ink-600: oklch(0.44 0.02 290);
+  --color-ink-800: oklch(0.25 0.02 290);
+  --color-ink-900: oklch(0.19 0.02 290);
+  --color-ink-950: oklch(0.15 0.02 290);
 
   /* type */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /* radius */
-  --radius-card: 0.75rem;
+  --radius-card: 1rem;
 
-  /* semantic aliases — components should use these, not raw brand/gray shades */
-  --color-surface: var(--color-white);
-  --color-surface-muted: var(--color-gray-50);
-  --color-border: var(--color-gray-200);
-  --color-text-primary: var(--color-gray-900);
-  --color-text-muted: var(--color-gray-500);
+  /* semantic aliases — components should use these, not raw brand/ink shades.
+     dark is the default; light mode overrides the vars below. */
+  --color-surface: var(--color-ink-950);
+  --color-surface-elevated: var(--color-ink-900);
+  --color-surface-muted: var(--color-ink-800);
+  --color-border: oklch(0.32 0.02 290);
+  --color-text-primary: var(--color-ink-50);
+  --color-text-muted: var(--color-ink-400);
   --color-accent: var(--color-brand-500);
-  --color-accent-hover: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-400);
+  --color-accent-contrast: oklch(0.99 0 0);
+  --color-star: oklch(0.82 0.15 80);
+  --color-danger: oklch(0.7 0.18 22);
+  --color-danger-surface: oklch(0.28 0.09 22);
+
+  /* elevation */
+  --shadow-card:
+    0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px -12px oklch(0 0 0 / 0.5);
+  --shadow-glow:
+    0 0 0 1px var(--color-accent), 0 12px 40px -12px var(--color-brand-500);
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-surface: var(--color-gray-900);
-    --color-surface-muted: var(--color-gray-800);
-    --color-border: var(--color-gray-700);
-    --color-text-primary: var(--color-gray-50);
-    --color-text-muted: var(--color-gray-400);
-    --color-accent: var(--color-brand-500);
-    --color-accent-hover: var(--color-brand-100);
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-surface: var(--color-white);
+    --color-surface-elevated: var(--color-white);
+    --color-surface-muted: var(--color-ink-100);
+    --color-border: var(--color-ink-200);
+    --color-text-primary: var(--color-ink-900);
+    --color-text-muted: var(--color-ink-600);
+    --color-accent: var(--color-brand-600);
+    --color-accent-hover: var(--color-brand-500);
+    --color-star: oklch(0.7 0.15 70);
+    --color-danger: oklch(0.52 0.19 22);
+    --color-danger-surface: oklch(0.96 0.03 22);
+    --shadow-card:
+      0 1px 2px oklch(0 0 0 / 0.04), 0 12px 32px -16px oklch(0 0 0 / 0.18);
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark light;
+    scroll-behavior: smooth;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--color-accent) 35%, transparent);
   }
 }

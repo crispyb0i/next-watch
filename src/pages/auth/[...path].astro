@@ -1,0 +1,18 @@
+---
+export const prerender = false;
+
+import Layout from "../../layouts/Layout.astro";
+import AuthView from "../../components/AuthView.tsx";
+import "../../styles/global.css";
+
+const { path } = Astro.params;
+const pathname = path ?? "sign-in";
+---
+
+<Layout>
+  <div class="flex justify-center">
+    <div class="w-full max-w-sm">
+      <AuthView pathname={pathname} client:load />
+    </div>
+  </div>
+</Layout>

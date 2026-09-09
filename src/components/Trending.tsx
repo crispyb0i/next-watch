@@ -35,8 +35,8 @@ function FilterButton({
       onClick={onClick}
       className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
         active
-          ? "bg-accent text-white"
-          : "border-border bg-surface text-text-muted hover:text-text-primary border"
+          ? "bg-accent text-accent-contrast shadow-sm"
+          : "text-text-muted hover:text-text-primary"
       }`}
     >
       {children}
@@ -58,44 +58,56 @@ function TrendingInner() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-text-primary text-lg font-bold">Trending</h2>
-        <div className="flex flex-wrap gap-2">
-          {MEDIA_TYPES.map(({ label, value }) => (
-            <FilterButton
-              key={value}
-              active={mediaType === value}
-              onClick={() => setMediaType(value)}
-            >
-              {label}
-            </FilterButton>
-          ))}
-          <span className="bg-border mx-1 w-px" aria-hidden="true" />
-          {TIME_WINDOWS.map(({ label, value }) => (
-            <FilterButton
-              key={value}
-              active={timeWindow === value}
-              onClick={() => setTimeWindow(value)}
-            >
-              {label}
-            </FilterButton>
-          ))}
+    <div className="w-full">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
+          Trending
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="border-border/60 bg-surface-muted/50 flex gap-1 rounded-full border p-1 backdrop-blur">
+            {MEDIA_TYPES.map(({ label, value }) => (
+              <FilterButton
+                key={value}
+                active={mediaType === value}
+                onClick={() => setMediaType(value)}
+              >
+                {label}
+              </FilterButton>
+            ))}
+          </div>
+          <div className="border-border/60 bg-surface-muted/50 flex gap-1 rounded-full border p-1 backdrop-blur">
+            {TIME_WINDOWS.map(({ label, value }) => (
+              <FilterButton
+                key={value}
+                active={timeWindow === value}
+                onClick={() => setTimeWindow(value)}
+              >
+                {label}
+              </FilterButton>
+            ))}
+          </div>
         </div>
       </div>
 
       {isError && (
-        <p className="rounded-card mt-6 border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+        <p className="rounded-card bg-danger-surface/60 text-danger border-danger/40 mt-6 border px-4 py-3 text-center text-sm">
           Something went wrong. Try again.
         </p>
       )}
 
       {isFetching && !items && (
-        <p className="text-text-muted mt-6 text-center text-sm">Loading…</p>
+        <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {Array.from({ length: 10 }, (_, index) => (
+            <li
+              key={index}
+              className="border-border/40 bg-surface-muted/50 aspect-[2/3] animate-pulse rounded-2xl border"
+            />
+          ))}
+        </ul>
       )}
 
       {items && items.length > 0 && (
-        <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+        <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) =>
             item.media_type === "movie" ? (
               <MediaCard
@@ -104,6 +116,7 @@ function TrendingInner() {
                 title={item.title}
                 subtitle={item.release_date?.slice(0, 4)}
                 poster={posterUrl(item.poster_path)}
+                rating={item.vote_average}
               />
             ) : (
               <MediaCard
@@ -112,6 +125,7 @@ function TrendingInner() {
                 title={item.name}
                 subtitle={item.first_air_date?.slice(0, 4)}
                 poster={posterUrl(item.poster_path)}
+                rating={item.vote_average}
               />
             ),
           )}
