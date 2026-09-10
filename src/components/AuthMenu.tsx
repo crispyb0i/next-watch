@@ -59,7 +59,7 @@ export default function AuthMenu() {
     );
   }
 
-  const { name, email, image } = session.user;
+  const { id, name, email, image } = session.user;
 
   return (
     <div className="relative" ref={menuRef}>
@@ -90,12 +90,18 @@ export default function AuthMenu() {
           role="menu"
           className="border-border/60 bg-surface-elevated shadow-card absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-2xl border py-1.5"
         >
-          <div className="border-border/60 mb-1.5 border-b px-3.5 pb-2.5">
+          {/* ponytail: id-based URL. Add /u/:username as an alias resolving to
+              the same row if vanity URLs are wanted later. */}
+          <a
+            href={`/u/${id}`}
+            role="menuitem"
+            className="border-border/60 hover:bg-surface-muted mb-1.5 block border-b px-3.5 pb-2.5 transition"
+          >
             <p className="text-text-primary truncate text-sm font-semibold">
               {name || "Account"}
             </p>
             <p className="text-text-muted truncate text-xs">{email}</p>
-          </div>
+          </a>
           <a
             href="/settings"
             role="menuitem"

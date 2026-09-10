@@ -1,0 +1,92 @@
+---
+export const prerender = false;
+
+import { desc, eq } from "drizzle-orm";
+import Layout from "../../layouts/Layout.astro";
+import MediaCard from "../../components/MediaCard.tsx";
+import { db } from "../../db";
+import { favorites, users } from "../../db/schema";
+import "../../styles/global.css";
+
+// Favorites change under this page, so never serve it from the HTTP cache.
+Astro.response.headers.set("cache-control", "no-store");
+
+const { id } = Astro.params;
+
+const [user] = id
+  ? await db.select().from(users).where(eq(users.id, id)).limit(1)
+  : [];
+
+if (!user) return new Response("User not found", { status: 404 });
+
+const rows = await db
+  .select({
+    tmdbId: favorites.tmdbId,
+    title: favorites.title,
+    poster: favorites.poster,
+    subtitle: favorites.subtitle,
+    rating: favorites.rating,
+  })
+  .from(favorites)
+  .where(eq(favorites.userId, user.id))
+  .orderBy(desc(favorites.createdAt));
+
+const displayName = user.name || user.email.split("@")[0];
+const initials = displayName.slice(0, 2).toUpperCase();
+---
+
+<Layout>
+  <div class="w-full">
+    <header class="flex items-center gap-4">
+      <div class="border-border/60 bg-surface-muted h-16 w-16 shrink-0 overflow-hidden rounded-full border">
+        {user.image ? (
+          <img
+            src={user.image}
+            alt=""
+            class="h-full w-full object-cover"
+            referrerpolicy="no-referrer"
+          />
+        ) : (
+          <span class="from-brand-400 to-brand-600 text-accent-contrast flex h-full w-full items-center justify-center bg-linear-to-br text-lg font-bold">
+            {initials}
+          </span>
+        )}
+      </div>
+      <div class="min-w-0">
+        <h1 class="text-text-primary truncate text-2xl font-black tracking-tight">
+          {displayName}
+        </h1>
+        <p class="text-text-muted text-sm">
+          {rows.length} {rows.length === 1 ? "favorite" : "favorites"}
+        </p>
+      </div>
+    </header>
+
+    <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
+      Favorites
+    </h2>
+
+    {rows.length === 0 ? (
+      <p class="text-text-muted mt-6 text-sm">Nothing favorited yet.</p>
+    ) : (
+      <ul class="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {rows.map((movie) => (
+          <MediaCard
+            href={`/movie?id=${movie.tmdbId}`}
+            title={movie.title}
+            subtitle={movie.subtitle}
+            poster={movie.poster}
+            rating={movie.rating}
+          />
+        ))}
+      </ul>
+    )}
+  </div>
+  <!-- `no-store` covers the HTTP cache; this covers back/forward cache, which
+       restores the old DOM without a request. -->
+  <script is:inline>
+    addEventListener("pageshow", (event) => {
+      if (event.persisted) location.reload();
+    });
+  </script>
+</Layout>

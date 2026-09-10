@@ -66,6 +66,7 @@ export default function MediaDetail({
   voteAverage,
   overview,
   cast,
+  actions,
 }: {
   backdrop: string | null;
   poster: string | null;
@@ -76,6 +77,7 @@ export default function MediaDetail({
   voteAverage: number;
   overview: string;
   cast: CastMember[];
+  actions?: React.ReactNode;
 }) {
   return (
     <div className="w-full">
@@ -102,9 +104,12 @@ export default function MediaDetail({
         </div>
 
         <div className="min-w-0">
-          <h1 className="text-text-primary text-3xl font-black tracking-tighter text-balance sm:text-4xl">
-            {title}
-          </h1>
+          <div className="flex items-start gap-3">
+            <h1 className="text-text-primary text-3xl font-black tracking-tighter text-balance sm:text-4xl">
+              {title}
+            </h1>
+            {actions}
+          </div>
           {tagline && (
             <p className="text-text-muted mt-2 text-sm italic">{tagline}</p>
           )}

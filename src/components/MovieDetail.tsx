@@ -7,6 +7,7 @@ import {
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaDetail, { useIdSearchParam } from "./MediaDetail";
+import FavoriteButton from "./FavoriteButton";
 
 function MovieDetailInner({ movieId }: { movieId: number }) {
   const detailsQuery = useQuery({
@@ -47,6 +48,18 @@ function MovieDetailInner({ movieId }: { movieId: number }) {
       voteAverage={movie.vote_average}
       overview={movie.overview}
       cast={creditsQuery.data?.cast ?? []}
+      actions={
+        <FavoriteButton
+          item={{
+            id: movie.id,
+            title: movie.title,
+            poster: posterUrl(movie.poster_path),
+            subtitle: movie.release_date?.slice(0, 4),
+            rating: movie.vote_average,
+          }}
+          className="mt-1 shrink-0"
+        />
+      }
     />
   );
 }

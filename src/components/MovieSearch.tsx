@@ -123,6 +123,7 @@ function MovieSearchInner() {
               subtitle={movie.release_date?.slice(0, 4)}
               poster={posterUrl(movie.poster_path)}
               rating={movie.vote_average}
+              favoriteId={movie.id}
             />
           ))}
         </ul>
