@@ -21,6 +21,7 @@ export const GET: APIRoute = async ({ request }) => {
   const rows = await db
     .select({
       id: favorites.tmdbId,
+      mediaType: favorites.mediaType,
       title: favorites.title,
       poster: favorites.poster,
       subtitle: favorites.subtitle,
@@ -51,6 +52,8 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "tmdbId and title are required" }, 400);
   }
 
+  const mediaType = item.mediaType === "tv" ? "tv" : "movie";
+
   if (!(await syncUser(request, id))) {
     return json({ error: "token is missing an email claim" }, 403);
   }
@@ -59,6 +62,7 @@ export const POST: APIRoute = async ({ request }) => {
     .values({
       userId: id,
       tmdbId: item.tmdbId as number,
+      mediaType,
       title: item.title.slice(0, 300),
       poster: typeof item.poster === "string" ? item.poster : null,
       subtitle: typeof item.subtitle === "string" ? item.subtitle : null,
@@ -81,9 +85,17 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const tmdbId = Number(url.searchParams.get("tmdbId"));
   if (!Number.isInteger(tmdbId)) return json({ error: "bad tmdbId" }, 400);
 
+  const mediaType = url.searchParams.get("mediaType") === "tv" ? "tv" : "movie";
+
   await db
     .delete(favorites)
-    .where(and(eq(favorites.userId, id), eq(favorites.tmdbId, tmdbId)));
+    .where(
+      and(
+        eq(favorites.userId, id),
+        eq(favorites.tmdbId, tmdbId),
+        eq(favorites.mediaType, mediaType),
+      ),
+    );
 
   return json({ ok: true });
 };

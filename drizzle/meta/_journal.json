@@ -64,6 +64,13 @@
       "when": 1789095429403,
       "tag": "0008_heavy_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789103517243,
+      "tag": "0009_left_professor_monster",
+      "breakpoints": true
     }
   ]
 }

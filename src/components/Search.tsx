@@ -89,9 +89,6 @@ function toCard(item: MultiResult) {
       poster: profileUrl(item.profile_path),
       rating: null,
     };
-  // ponytail: no `favoriteId` for TV — `favorites` is keyed on
-  // (userId, tmdbId) with no `mediaType`, so a show and a movie sharing an id
-  // would collide. Add the column, then pass it here.
   if (item.media_type === "tv")
     return {
       href: `/tv?id=${item.id}`,
@@ -99,6 +96,8 @@ function toCard(item: MultiResult) {
       subtitle: item.first_air_date?.slice(0, 4),
       poster: posterUrl(item.poster_path),
       rating: item.vote_average,
+      favoriteId: item.id,
+      mediaType: "tv" as const,
     };
   return {
     href: `/movie?id=${item.id}`,

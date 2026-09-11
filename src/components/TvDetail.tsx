@@ -8,6 +8,7 @@ import {
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaDetail from "./MediaDetail";
+import FavoriteButton from "./FavoriteButton";
 import Trailer from "./Trailer";
 import { DetailSkeleton } from "./Skeleton";
 
@@ -103,6 +104,20 @@ function TvDetailInner({ tvId }: { tvId: number }) {
           <Trailer videos={show.videos?.results} />
           <SeasonStrip tvId={tvId} seasons={show.seasons ?? []} />
         </>
+      }
+      actions={
+        <FavoriteButton
+          item={{
+            id: show.id,
+            mediaType: "tv",
+            title: show.name,
+            poster: posterUrl(show.poster_path),
+            subtitle: show.first_air_date?.slice(0, 4),
+            rating: show.vote_average,
+            href: `/tv?id=${show.id}`,
+          }}
+          className="mt-1 shrink-0"
+        />
       }
     />
   );

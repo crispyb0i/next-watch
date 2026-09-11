@@ -129,6 +129,8 @@ function DiscoverInner() {
                   subtitle={item.first_air_date?.slice(0, 4)}
                   poster={posterUrl(item.poster_path)}
                   rating={item.vote_average}
+                  favoriteId={item.id}
+                  mediaType="tv"
                 />
               ),
             )}

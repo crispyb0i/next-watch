@@ -9,7 +9,11 @@ export default function FavoriteButton({
   className?: string;
 }) {
   const favorites = useFavorites();
-  const active = favorites.some((entry) => entry.id === item.id);
+  const mediaType = item.mediaType ?? "movie";
+  const active = favorites.some(
+    (entry) =>
+      entry.id === item.id && (entry.mediaType ?? "movie") === mediaType,
+  );
 
   return (
     <button

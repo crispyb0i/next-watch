@@ -44,7 +44,6 @@ export const follows = pgTable(
   ],
 );
 
-// ponytail: movies only. Add a `mediaType` column when TV favorites land.
 export const favorites = pgTable(
   "favorites",
   {
@@ -52,6 +51,12 @@ export const favorites = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     tmdbId: integer("tmdb_id").notNull(),
+    // Part of the key: TMDB ids are only unique per media type, so a movie and
+    // a show can share one.
+    mediaType: text("media_type")
+      .$type<"movie" | "tv">()
+      .notNull()
+      .default("movie"),
     // ponytail: one text column instead of (mediaType, season, episode) — the
     // favorites grid only ever needs somewhere to link. Break it into typed
     // columns if favorites ever need filtering or grouping by media type.
@@ -62,7 +67,9 @@ export const favorites = pgTable(
     rating: real("rating"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.tmdbId] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.tmdbId, table.mediaType] }),
+  ],
 );
 
 // ponytail: one flat table. `tmdbId` is always the *show* id for TV;

@@ -17,22 +17,26 @@ export default function Favorites() {
         <PosterGridSkeleton count={5} />
       ) : favorites.length === 0 ? (
         <p className="text-text-muted mt-6 text-sm">
-          No favorites yet. Tap the heart on any movie to save it.
+          No favorites yet. Tap the heart on any movie or show to save it.
         </p>
       ) : (
         <ImageGroup>
           <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {favorites.map((movie) => (
-              <MediaCard
-                key={movie.id}
-                href={movie.href ?? `/movie?id=${movie.id}`}
-                title={movie.title}
-                subtitle={movie.subtitle}
-                poster={movie.poster}
-                rating={movie.rating}
-                favoriteId={movie.id}
-              />
-            ))}
+            {favorites.map((item) => {
+              const mediaType = item.mediaType ?? "movie";
+              return (
+                <MediaCard
+                  key={`${mediaType}-${item.id}`}
+                  href={item.href ?? `/${mediaType}?id=${item.id}`}
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  poster={item.poster}
+                  rating={item.rating}
+                  favoriteId={item.id}
+                  mediaType={mediaType}
+                />
+              );
+            })}
           </ul>
         </ImageGroup>
       )}

@@ -1,8 +1,12 @@
 import { useSyncExternalStore } from "react";
 import { getJWTToken } from "./auth/client";
 
+export type MediaType = "movie" | "tv";
+
 export interface Favorite {
   id: number;
+  /** Defaults to "movie" — TMDB ids only collide across media types. */
+  mediaType?: MediaType;
   title: string;
   poster: string | null;
   subtitle?: string | null;
@@ -37,6 +41,9 @@ function readLocal(): Favorite[] {
           (item): item is Favorite =>
             typeof item?.id === "number" &&
             typeof item?.title === "string" &&
+            (item.mediaType == null ||
+              item.mediaType === "movie" ||
+              item.mediaType === "tv") &&
             // Only same-origin paths — localStorage is user-writable, so a
             // stored `javascript:` or cross-origin href must never reach an <a>.
             (item.href == null ||
@@ -86,7 +93,7 @@ function post(item: Favorite, jwt: string) {
       authorization: `Bearer ${jwt}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ ...item, tmdbId: item.id }),
+    body: JSON.stringify({ ...item, tmdbId: item.id, mediaType: typeOf(item) }),
   });
 }
 
@@ -94,17 +101,23 @@ export function getFavorites(): Favorite[] {
   return cache;
 }
 
-export function isFavorite(id: number): boolean {
-  return cache.some((item) => item.id === id);
+const typeOf = (item: { mediaType?: MediaType }): MediaType =>
+  item.mediaType ?? "movie";
+
+const same = (a: Favorite, b: Favorite) =>
+  a.id === b.id && typeOf(a) === typeOf(b);
+
+export function isFavorite(id: number, mediaType: MediaType = "movie") {
+  return cache.some((item) => item.id === id && typeOf(item) === mediaType);
 }
 
 export async function toggleFavorite(item: Favorite) {
-  const removing = isFavorite(item.id);
+  const removing = isFavorite(item.id, typeOf(item));
   const previous = cache;
 
   // Optimistic: update now, roll back if the request fails.
   cache = removing
-    ? cache.filter((entry) => entry.id !== item.id)
+    ? cache.filter((entry) => !same(entry, item))
     : [item, ...cache];
   emit();
 
@@ -115,10 +128,13 @@ export async function toggleFavorite(item: Favorite) {
   }
 
   const response = removing
-    ? await fetch(`/api/favorites?tmdbId=${item.id}`, {
-        method: "DELETE",
-        headers: { authorization: `Bearer ${jwt}` },
-      })
+    ? await fetch(
+        `/api/favorites?tmdbId=${item.id}&mediaType=${typeOf(item)}`,
+        {
+          method: "DELETE",
+          headers: { authorization: `Bearer ${jwt}` },
+        },
+      )
     : await post(item, jwt);
 
   if (!response.ok) {

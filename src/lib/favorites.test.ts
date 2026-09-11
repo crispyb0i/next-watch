@@ -59,7 +59,26 @@ assert.equal(store.has("favorites"), false);
 
 calls = [];
 await toggleFavorite(movie);
-assert.deepEqual(calls, ["DELETE /api/favorites?tmdbId=1"]);
+assert.deepEqual(calls, ["DELETE /api/favorites?tmdbId=1&mediaType=movie"]);
+
+// --- a show and a movie sharing a TMDB id are separate favorites
+calls = [];
+_resetForTest();
+const show = {
+  id: 1,
+  mediaType: "tv" as const,
+  title: "Dune: The Sisterhood",
+  poster: null,
+};
+await toggleFavorite(movie);
+await toggleFavorite(show);
+assert.equal(isFavorite(1), true, "movie still favorited");
+assert.equal(isFavorite(1, "tv"), true, "show favorited too");
+
+await toggleFavorite(show);
+assert.equal(isFavorite(1, "tv"), false, "show removed");
+assert.equal(isFavorite(1), true, "movie untouched by the show's removal");
+assert.deepEqual(calls.at(-1), "DELETE /api/favorites?tmdbId=1&mediaType=tv");
 
 // --- failed request rolls the optimistic update back
 ok = false;

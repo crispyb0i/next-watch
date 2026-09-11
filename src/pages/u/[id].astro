@@ -27,6 +27,7 @@ const [rows, log, follow] = await Promise.all([
   db
     .select({
       tmdbId: favorites.tmdbId,
+      mediaType: favorites.mediaType,
       title: favorites.title,
       poster: favorites.poster,
       subtitle: favorites.subtitle,
@@ -144,7 +145,7 @@ const formatDate = (iso: string) =>
       <ul class="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {rows.map((movie) => (
           <MediaCard
-            href={movie.href || `/movie?id=${movie.tmdbId}`}
+            href={movie.href || `/${movie.mediaType}?id=${movie.tmdbId}`}
             title={movie.title}
             subtitle={movie.subtitle}
             poster={movie.poster}
