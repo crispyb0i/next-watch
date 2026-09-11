@@ -1,6 +1,7 @@
 /// <reference types="astro/client" />
 
 interface ImportMetaEnv {
+  readonly TMDB_API_KEY: string;
   readonly PUBLIC_TMDB_API_KEY: string;
   readonly DATABASE_URL: string;
   readonly NEON_AUTH_BASE_URL: string;

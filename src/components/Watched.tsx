@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getJWTToken } from "../lib/auth/client";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { authClient, getJWTToken } from "../lib/auth/client";
 import { entryHref, type WatchEntry } from "../lib/watchLog";
 import { notify } from "../lib/notifications";
 import QueryProvider from "./QueryProvider";
@@ -8,10 +8,14 @@ import { LogForm } from "./WatchLogButton";
 import { PosterGridSkeleton } from "./Skeleton";
 import AuthGate from "./AuthGate";
 
-async function fetchWatched(): Promise<WatchEntry[] | null> {
+async function fetchWatched(
+  offset: number,
+  signal?: AbortSignal,
+): Promise<WatchEntry[]> {
   const jwt = await getJWTToken();
-  if (!jwt) return null; // signed out
-  const response = await fetch("/api/watched", {
+  if (!jwt) throw new Error("Sign in to continue.");
+  const response = await fetch(`/api/watched?limit=30&offset=${offset}`, {
+    signal,
     headers: { authorization: `Bearer ${jwt}` },
   });
   if (!response.ok) throw new Error("Couldn't load your watch log.");
@@ -49,6 +53,7 @@ function Entry({ entry }: { entry: WatchEntry }) {
     try {
       await remove(entry.id);
       void queryClient.invalidateQueries({ queryKey: ["watched"] });
+      void queryClient.invalidateQueries({ queryKey: ["progress"] });
       notify("Removed from your watch log.");
       confirmDialog.current?.close();
     } catch (error) {
@@ -188,42 +193,54 @@ function Entry({ entry }: { entry: WatchEntry }) {
 }
 
 function WatchedInner() {
-  const { data, isPending, error } = useQuery({
-    queryKey: ["watched"],
-    queryFn: fetchWatched,
+  const { data: session } = authClient.useSession();
+  const {
+    data,
+    isPending,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ["watched", session?.user.id],
+    enabled: Boolean(session),
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) => fetchWatched(pageParam, signal),
+    getNextPageParam: (last, pages) =>
+      last.length === 30 ? pages.length * 30 : undefined,
   });
-
+  const entries = data?.pages.flat() ?? [];
   return (
     <div className="w-full">
-      <h1 className="text-text-primary text-xl font-extrabold tracking-tight">
-        Media log
-      </h1>
-
-      {isPending ? (
-        <PosterGridSkeleton count={4} />
-      ) : error ? (
-        <p role="alert" className="text-danger mt-6 text-sm">
-          {error.message}
+      <h1 className="text-text-primary text-xl font-extrabold">Watched</h1>
+      {isPending && <PosterGridSkeleton />}
+      {error && (
+        <p role="alert" className="text-danger mt-4">
+          {error.message}{" "}
+          <button className="underline" onClick={() => void refetch()}>
+            Retry
+          </button>
         </p>
-      ) : data === null ? (
-        <p className="text-text-muted mt-6 text-sm">
-          Sign in to keep a watch log.
+      )}
+      {!isPending && !error && !entries.length && (
+        <p className="text-text-muted mt-6">
+          Your watch log is empty. Log a movie or an episode to get started.
         </p>
-      ) : data.length === 0 ? (
-        <p className="text-text-muted mt-6 text-sm">
-          Nothing logged yet. Open a movie and hit “Log watch”.
-        </p>
-      ) : (
-        <>
-          <p className="text-text-muted mt-1 text-sm">
-            {data.length} {data.length === 1 ? "entry" : "entries"}
-          </p>
-          <ul className="mt-6 space-y-4">
-            {data.map((entry) => (
-              <Entry key={entry.id} entry={entry} />
-            ))}
-          </ul>
-        </>
+      )}
+      <ul className="mt-6 space-y-4">
+        {entries.map((entry) => (
+          <Entry key={entry.id} entry={entry} />
+        ))}
+      </ul>
+      {hasNextPage && (
+        <button
+          className="mt-6 rounded-xl border px-4 py-2"
+          disabled={isFetchingNextPage}
+          onClick={() => void fetchNextPage()}
+        >
+          {isFetchingNextPage ? "Loading…" : "Load more"}
+        </button>
       )}
     </div>
   );

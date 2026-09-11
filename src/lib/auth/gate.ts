@@ -1,8 +1,16 @@
 /** Trust boundary: only same-origin paths, never `//evil.com` or a scheme. */
 export function safeNext(value: string | null | undefined) {
-  return value && value.startsWith("/") && !value.startsWith("//")
-    ? value
-    : "/";
+  if (!value || !value.startsWith("/") || /[\\\u0000-\u0020\u007f]/.test(value))
+    return "/";
+  try {
+    const base = "https://next-watch.invalid";
+    const url = new URL(value, base);
+    return url.origin === base
+      ? `${url.pathname}${url.search}${url.hash}`
+      : "/";
+  } catch {
+    return "/";
+  }
 }
 
 export function signInHref(next?: string) {
@@ -18,7 +26,13 @@ export function signInHref(next?: string) {
  */
 export async function requireAuth() {
   const { getJWTToken } = await import("./client");
-  if (await getJWTToken()) return true;
+  try {
+    if (await getJWTToken()) return true;
+  } catch {
+    const { notify } = await import("../notifications");
+    notify("Could not check your sign-in. Please try again.", "error");
+    return false;
+  }
   location.href = signInHref();
   return false;
 }

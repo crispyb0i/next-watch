@@ -1,3 +1,4 @@
+import { mediaHref } from "../../lib/mediaHref";
 import type { APIRoute } from "astro";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
@@ -9,7 +10,10 @@ export const prerender = false;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+    },
   });
 
 const userId = sessionUserId;
@@ -53,7 +57,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Trust boundary: the client picks these values, so validate before insert.
   const item = body as Record<string, unknown>;
-  if (!Number.isInteger(item?.tmdbId) || typeof item?.title !== "string") {
+  if (
+    !Number.isSafeInteger(item?.tmdbId) ||
+    Number(item?.tmdbId) <= 0 ||
+    typeof item?.title !== "string"
+  ) {
     return json({ error: "tmdbId and title are required" }, 400);
   }
 
@@ -74,11 +82,7 @@ export const POST: APIRoute = async ({ request }) => {
       poster: typeof item.poster === "string" ? item.poster : null,
       subtitle: typeof item.subtitle === "string" ? item.subtitle : null,
       rating: typeof item.rating === "number" ? item.rating : null,
-      // Same-origin paths only: this string is rendered as an <a href>.
-      href:
-        typeof item.href === "string" && item.href.startsWith("/")
-          ? item.href.slice(0, 300)
-          : null,
+      href: mediaHref(item.href, mediaType, Number(item.tmdbId)),
     })
     .onConflictDoNothing();
 
@@ -90,7 +94,8 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!id) return json({ error: "unauthorized" }, 401);
 
   const tmdbId = Number(url.searchParams.get("tmdbId"));
-  if (!Number.isInteger(tmdbId)) return json({ error: "bad tmdbId" }, 400);
+  if (!Number.isSafeInteger(tmdbId) || tmdbId <= 0)
+    return json({ error: "bad tmdbId" }, 400);
 
   const mediaType = url.searchParams.get("mediaType") === "tv" ? "tv" : "movie";
   const kind = kindOf(url.searchParams.get("kind"));

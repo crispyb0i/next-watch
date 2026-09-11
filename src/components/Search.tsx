@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { searchMulti, posterUrl, profileUrl } from "../lib/tmdb";
+import { searchPage, posterUrl, profileUrl } from "../lib/tmdb";
 import type { MultiResult } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaCard from "./MediaCard";
@@ -96,19 +96,33 @@ function toCard(item: MultiResult) {
   };
 }
 
-function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
+function SearchInner({
+  initialQuery = "",
+  initialTab = "all",
+  initialPage = 1,
+}: {
+  initialQuery?: string;
+  initialTab?: Tab;
+  initialPage?: number;
+}) {
   const [query, setQuery] = useState(initialQuery);
   // Only a submit moves `query` into `submitted`, so typing costs no requests.
-  const [submitted, setSubmitted] = useState(initialQuery);
-  const [tab, setTab] = useState<Tab>("all");
+  const submitted = initialQuery;
+  const tab = initialTab;
   // `@name` is the power-user shortcut into the Users tab.
   const isUserQuery = submitted.startsWith("@");
   const activeTab: Tab = isUserQuery ? "users" : tab;
   const term = isUserQuery ? submitted.slice(1) : submitted;
 
   const media = useQuery({
-    queryKey: ["search", term],
-    queryFn: ({ signal }) => searchMulti(term, signal),
+    queryKey: ["search", term, activeTab, initialPage],
+    queryFn: ({ signal }) =>
+      searchPage(
+        term,
+        activeTab === "users" ? "all" : activeTab,
+        initialPage,
+        signal,
+      ),
     enabled: activeTab !== "users" && term.length > 0,
   });
 
@@ -126,14 +140,19 @@ function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
 
   const { isFetching, isError } = activeTab === "users" ? people : media;
 
-  const results = (media.data ?? []).filter(
+  const results = (media.data?.results ?? []).filter(
     (item) => activeTab === "all" || item.media_type === activeTab,
   );
   const users = people.data ?? [];
   const count = activeTab === "users" ? users.length : results.length;
 
   const isSearchActive = term.length > 0;
-  const showEmptyState = isSearchActive && !isFetching && !isError && !count;
+  const showEmptyState =
+    isSearchActive &&
+    (activeTab !== "users" || term.length > 1) &&
+    !isFetching &&
+    !isError &&
+    !count;
 
   return (
     <div className="w-full">
@@ -145,7 +164,7 @@ function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
           role="search"
           onSubmit={(event) => {
             event.preventDefault();
-            setSubmitted(query.trim());
+            location.href = `/search?${new URLSearchParams({ q: query.trim(), tab: activeTab })}`;
           }}
           className="group relative"
         >
@@ -180,22 +199,18 @@ function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
         {/* Horizontal scroll instead of wrapping: five pills never fit one
             phone row, and a stray second row reads as a layout bug. */}
         <div
-          role="tablist"
+          role="group"
           aria-label="Result type"
           className="-mx-4 mt-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
         >
           {TABS.map(([value, label]) => (
             <button
               key={value}
-              role="tab"
+              role="button"
               type="button"
-              aria-selected={activeTab === value}
+              aria-pressed={activeTab === value}
               onClick={() => {
-                setTab(value);
-                if (isUserQuery && value !== "users") {
-                  setQuery(term);
-                  setSubmitted(term);
-                }
+                location.href = `/search?${new URLSearchParams({ q: value === "users" ? submitted : term, tab: value })}`;
               }}
               className={`shrink-0 rounded-full border px-4 py-2 text-sm whitespace-nowrap transition ${
                 activeTab === value
@@ -214,6 +229,11 @@ function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
           </p>
         )}
 
+        {activeTab === "users" && term.length === 1 && (
+          <p className="text-text-muted mt-6">
+            Enter at least two characters to find users.
+          </p>
+        )}
         {showEmptyState && (
           <p className="text-text-muted mt-6 text-center text-sm">
             No results for “{term}”.
@@ -271,6 +291,32 @@ function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
         </ImageGroup>
       )}
 
+      {activeTab !== "users" && isSearchActive && !isError && media.data && (
+        <nav
+          aria-label="Search pages"
+          className="mt-8 flex items-center justify-center gap-6"
+        >
+          {initialPage > 1 && (
+            <a
+              className="underline"
+              href={`/search?${new URLSearchParams({ q: submitted, tab: activeTab, page: String(initialPage - 1) })}`}
+            >
+              Previous page
+            </a>
+          )}
+          <span aria-live="polite">
+            Page {initialPage} · {media.data.total_results ?? count} results
+          </span>
+          {initialPage < Math.min(media.data.total_pages ?? 1, 500) && (
+            <a
+              className="underline"
+              href={`/search?${new URLSearchParams({ q: submitted, tab: activeTab, page: String(initialPage + 1) })}`}
+            >
+              Next page
+            </a>
+          )}
+        </nav>
+      )}
       {!isSearchActive && (
         <div className="mt-20">
           <Trending />
@@ -280,10 +326,17 @@ function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
   );
 }
 
-export default function Search({ initialQuery }: { initialQuery?: string }) {
+export default function Search(props: {
+  initialQuery?: string;
+  initialTab?: Tab;
+  initialPage?: number;
+}) {
   return (
     <QueryProvider>
-      <SearchInner initialQuery={initialQuery} />
+      <SearchInner
+        key={`${props.initialQuery}:${props.initialTab}:${props.initialPage}`}
+        {...props}
+      />
     </QueryProvider>
   );
 }

@@ -3,6 +3,23 @@ import Container from "../components/Container.astro";
 import Navbar from "../components/Navbar.astro";
 import ToastHost from "../components/ToastHost.tsx";
 import { ClientRouter } from "astro:transitions";
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  noindex?: boolean;
+}
+const {
+  title = "Next Watch",
+  description = "Discover movies and TV, track what you watch, and share your favorites.",
+  image,
+  noindex = false,
+} = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+for (const key of ["id", "season", "episode"]) {
+  const value = Astro.url.searchParams.get(key);
+  if (value) canonical.searchParams.set(key, value);
+}
 ---
 
 <!doctype html>
@@ -15,7 +32,19 @@ import { ClientRouter } from "astro:transitions";
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="generator" content={Astro.generator} />
-    <title>Next Watch</title>
+    <title>{title}</title>
+    <meta name="description" content={description.slice(0, 300)} />
+    <link rel="canonical" href={canonical.href} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description.slice(0, 300)} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical.href} />
+    {image && <meta property="og:image" content={image} />}
+    <meta
+      name="twitter:card"
+      content={image ? "summary_large_image" : "summary"}
+    />
+    {noindex && <meta name="robots" content="noindex,follow" />}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

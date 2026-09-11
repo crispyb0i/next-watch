@@ -1,3 +1,4 @@
+import { pagination } from "../../lib/pagination";
 import type { APIRoute } from "astro";
 import { feed } from "../../lib/follows";
 import { sessionUserId } from "../../lib/auth/server";
@@ -12,12 +13,12 @@ export const GET: APIRoute = async ({ request, url }) => {
       headers: { "content-type": "application/json" },
     });
 
-  // Trust boundary: paging params come from the client, so clamp them.
-  const limit = Math.min(
-    Math.max(Number(url.searchParams.get("limit")) || 50, 1),
-    100,
-  );
-  const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
+  let limit: number, offset: number;
+  try {
+    ({ limit, offset } = pagination(url.searchParams));
+  } catch {
+    return Response.json({ error: "Invalid pagination" }, { status: 400 });
+  }
 
   return new Response(JSON.stringify(await feed(id, limit, offset)), {
     headers: {

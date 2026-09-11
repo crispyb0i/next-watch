@@ -1,3 +1,4 @@
+import { pagination } from "../../lib/pagination";
 import type { APIRoute } from "astro";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
@@ -10,7 +11,10 @@ export const prerender = false;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+    },
   });
 
 const columns = {
@@ -38,10 +42,16 @@ export function listWatched(userId: string) {
     .orderBy(desc(watchLog.watchedOn), desc(watchLog.id));
 }
 
-export const GET: APIRoute = async ({ request }) => {
+export const GET: APIRoute = async ({ request, url }) => {
   const id = await sessionUserId(request);
   if (!id) return json({ error: "unauthorized" }, 401);
-  return json(await listWatched(id));
+  let limit: number, offset: number;
+  try {
+    ({ limit, offset } = pagination(url.searchParams));
+  } catch {
+    return json({ error: "Invalid pagination" }, 400);
+  }
+  return json(await listWatched(id).limit(limit).offset(offset));
 };
 
 export const POST: APIRoute = async ({ request }) => {

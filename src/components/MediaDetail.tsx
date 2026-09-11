@@ -6,7 +6,14 @@ import { profileUrl, userRegion } from "../lib/tmdb";
  *  the SSR markup and first client render agree. */
 export function useRegion(): string {
   const [region, setRegion] = useState("US");
-  useEffect(() => setRegion(userRegion()), []);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("next-watch-region");
+      setRegion(saved && /^[A-Z]{2}$/.test(saved) ? saved : userRegion());
+    } catch {
+      setRegion(userRegion());
+    }
+  }, []);
   return region;
 }
 import ImageGroup, { useGroupImage } from "./ImageGroup";

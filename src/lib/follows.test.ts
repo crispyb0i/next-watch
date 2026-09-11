@@ -10,6 +10,10 @@ import { follows, users, watchLog } from "../db/schema.ts";
 import { feed, follow, followState, isFollowing, unfollow } from "./follows.ts";
 import { db } from "../db/index.ts";
 
+if (process.env.NEXT_WATCH_TEST_DATABASE !== "1")
+  throw new Error(
+    "Use npm run test:integration with TEST_DATABASE_URL pointing to a disposable test database.",
+  );
 const A = "test-follow-a";
 const B = "test-follow-b";
 

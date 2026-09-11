@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "NODE_ENV=production astro build",
     "preview": "astro preview",
     "astro": "astro",
     "format": "prettier --write .",
@@ -15,7 +15,11 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "node scripts/test.mjs",
+    "test:integration": "node --experimental-strip-types scripts/test-integration.mjs",
+    "lint": "astro check && prettier --check src scripts package.json",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.5",
@@ -42,6 +46,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^22.20.2",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
@@ -51,5 +56,13 @@
     "prettier-plugin-astro": "^1.0.0",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@vercel/routing-utils": {
+      "path-to-regexp": "6.3.0"
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.28.2"
+    }
   }
 }

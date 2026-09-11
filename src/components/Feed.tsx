@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { authClient, getJWTToken } from "../lib/auth/client";
 import { entryHref } from "../lib/watchLog";
 import QueryProvider from "./QueryProvider";
@@ -23,10 +23,14 @@ interface FeedEntry {
   userImage: string | null;
 }
 
-async function fetchFeed(): Promise<FeedEntry[] | null> {
+async function fetchFeed(
+  offset: number,
+  signal?: AbortSignal,
+): Promise<FeedEntry[]> {
   const jwt = await getJWTToken();
-  if (!jwt) return null; // signed out
-  const response = await fetch("/api/feed", {
+  if (!jwt) throw new Error("Sign in to continue.");
+  const response = await fetch(`/api/feed?limit=30&offset=${offset}`, {
+    signal,
     headers: { authorization: `Bearer ${jwt}` },
   });
   if (!response.ok) throw new Error("Couldn't load your feed.");
@@ -100,31 +104,58 @@ function Entry({ entry }: { entry: FeedEntry }) {
 }
 
 function FeedList() {
-  const { data: session, isPending } = authClient.useSession();
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["feed"],
-    queryFn: fetchFeed,
+  const { data: session } = authClient.useSession();
+  const {
+    data,
+    isPending,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ["feed", session?.user.id],
     enabled: Boolean(session),
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) => fetchFeed(pageParam, signal),
+    getNextPageParam: (last, pages) =>
+      last.length === 30 ? pages.length * 30 : undefined,
   });
-
-  if (isPending || isLoading) return <PosterGridSkeleton />;
-  if (error)
-    return <p className="text-danger text-sm">{(error as Error).message}</p>;
-
-  if (!data?.length)
-    return (
-      <p className="text-text-muted text-sm">
-        Nothing here yet. Follow someone from their profile and their watches
-        show up here.
-      </p>
-    );
-
+  const entries = data?.pages.flat() ?? [];
   return (
-    <ul className="space-y-3">
-      {data.map((entry) => (
-        <Entry key={entry.id} entry={entry} />
-      ))}
-    </ul>
+    <div className="w-full">
+      <h1 className="text-text-primary text-xl font-extrabold">
+        Friends’ activity
+      </h1>
+      {isPending && <PosterGridSkeleton />}
+      {error && (
+        <p role="alert" className="text-danger mt-4">
+          {error.message}{" "}
+          <button className="underline" onClick={() => void refetch()}>
+            Retry
+          </button>
+        </p>
+      )}
+      {!isPending && !error && !entries.length && (
+        <p className="text-text-muted mt-6">
+          Nothing here yet. Follow someone to see their watches.
+        </p>
+      )}
+      <ul className="mt-6 space-y-4">
+        {entries.map((entry) => (
+          <Entry key={entry.id} entry={entry} />
+        ))}
+      </ul>
+      {hasNextPage && (
+        <button
+          className="mt-6 rounded-xl border px-4 py-2"
+          disabled={isFetchingNextPage}
+          onClick={() => void fetchNextPage()}
+        >
+          {isFetchingNextPage ? "Loading…" : "Load more"}
+        </button>
+      )}
+    </div>
   );
 }
 

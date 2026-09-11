@@ -1,0 +1,9 @@
+---
+import Layout from "../layouts/Layout.astro";
+import AvailabilityAlerts from "../components/AvailabilityAlerts";
+import "../styles/global.css";
+---
+
+<Layout title="Streaming alerts — Next Watch" noindex>
+  <AvailabilityAlerts client:load />
+</Layout>

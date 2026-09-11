@@ -1,3 +1,7 @@
+import type { TvShowDetails, SeasonDetails } from "../lib/tmdb";
+import { useState } from "react";
+import { useShowProgress } from "./ShowProgress";
+import { episodeWatched, seasonProgress } from "../lib/progress";
 import { useQuery } from "@tanstack/react-query";
 import {
   episodeCode,
@@ -20,13 +24,17 @@ function EpisodeRow({
   showId,
   showName,
   poster,
+  watched,
 }: {
   episode: Episode;
   showId: number;
   showName: string;
   poster: string | null;
+  watched: boolean;
 }) {
-  const still = stillUrl(episode.still_path);
+  const [revealed, setRevealed] = useState(false);
+  const showSpoilers = watched || revealed;
+  const still = showSpoilers ? stillUrl(episode.still_path) : null;
   const code = episodeCode(episode.season_number, episode.episode_number);
   const href = `/tv/episode?id=${showId}&season=${episode.season_number}&episode=${episode.episode_number}`;
 
@@ -53,6 +61,16 @@ function EpisodeRow({
       </a>
 
       <div className="min-w-0 flex-1">
+        {watched ? (
+          <p className="text-accent text-sm">Watched</p>
+        ) : (
+          <button
+            className="mb-2 text-sm underline"
+            onClick={() => setRevealed(!revealed)}
+          >
+            {revealed ? "Hide spoilers" : "Show episode spoilers"}
+          </button>
+        )}
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-text-primary font-bold tracking-tight">
             <a href={href} className="hover:text-accent transition">
@@ -101,7 +119,7 @@ function EpisodeRow({
           )}
         </p>
 
-        {episode.overview && (
+        {showSpoilers && episode.overview && (
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
             {episode.overview}
           </p>
@@ -114,15 +132,22 @@ function EpisodeRow({
 function SeasonDetailInner({
   tvId,
   seasonNumber,
+  initialShow,
+  initialData,
 }: {
   tvId: number;
   seasonNumber: number;
+  initialShow?: TvShowDetails;
+  initialData?: SeasonDetails;
 }) {
+  const progressQuery = useShowProgress(tvId);
   const showQuery = useQuery({
+    initialData: initialShow,
     queryKey: ["tv", tvId],
     queryFn: ({ signal }) => getTvShowDetails(tvId, signal),
   });
   const seasonQuery = useQuery({
+    initialData,
     queryKey: ["tv-season", tvId, seasonNumber],
     queryFn: ({ signal }) => getSeasonDetails(tvId, seasonNumber, signal),
   });
@@ -138,6 +163,7 @@ function SeasonDetailInner({
   if (!seasonQuery.data || !showQuery.data) return <DetailSkeleton />;
 
   const season = seasonQuery.data;
+  const progress = seasonProgress(progressQuery.data ?? [], season.episodes);
   const show = showQuery.data;
   const poster = posterUrl(season.poster_path ?? show.poster_path, "w500");
 
@@ -176,19 +202,48 @@ function SeasonDetailInner({
               {season.episodes.length === 1 ? "" : "s"}
             </span>
           </p>
-          {season.overview && (
-            <p className="text-text-muted mt-4 leading-relaxed">
-              {season.overview}
-            </p>
-          )}
+          {progress.total > 0 &&
+            progress.watched === progress.total &&
+            season.overview && (
+              <p className="text-text-muted mt-4 leading-relaxed">
+                {season.overview}
+              </p>
+            )}
         </div>
       </div>
 
+      {progressQuery.data && (
+        <div className="mt-6">
+          <p>
+            {progress.watched} of {progress.total} aired episodes watched
+          </p>
+          {progress.next && (
+            <a
+              className="underline"
+              href={`/tv/episode?id=${tvId}&season=${progress.next.season_number}&episode=${progress.next.episode_number}`}
+            >
+              Next unwatched:{" "}
+              {episodeCode(
+                progress.next.season_number,
+                progress.next.episode_number,
+              )}
+            </a>
+          )}
+        </div>
+      )}
+      {progressQuery.error && (
+        <p role="alert">Could not load viewing progress.</p>
+      )}
       <ul className="mt-10 space-y-4">
         {season.episodes.map((episode) => (
           <EpisodeRow
             key={episode.id}
             episode={episode}
+            watched={episodeWatched(
+              progressQuery.data ?? [],
+              episode.season_number,
+              episode.episode_number,
+            )}
             showId={tvId}
             showName={show.name}
             poster={posterUrl(show.poster_path)}
@@ -202,14 +257,23 @@ function SeasonDetailInner({
 export default function SeasonDetail({
   tvId,
   seasonNumber,
+  initialShow,
+  initialData,
 }: {
   tvId: number | null;
   seasonNumber: number | null;
+  initialShow?: TvShowDetails;
+  initialData?: SeasonDetails;
 }) {
   return (
     <QueryProvider>
       {tvId != null && seasonNumber != null ? (
-        <SeasonDetailInner tvId={tvId} seasonNumber={seasonNumber} />
+        <SeasonDetailInner
+          initialShow={initialShow}
+          initialData={initialData}
+          tvId={tvId}
+          seasonNumber={seasonNumber}
+        />
       ) : (
         <p className="text-text-muted text-center text-sm">
           No season specified.

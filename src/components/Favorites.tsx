@@ -1,4 +1,11 @@
-import { useFavoritesLoaded, useSaved, type SaveKind } from "../lib/favorites";
+import { mediaHref } from "../lib/mediaHref";
+import {
+  reloadFavorites,
+  useFavoritesError,
+  useFavoritesLoaded,
+  useSaved,
+  type SaveKind,
+} from "../lib/favorites";
 import MediaCard from "./MediaCard";
 import ImageGroup from "./ImageGroup";
 import { PosterGridSkeleton } from "./Skeleton";
@@ -24,11 +31,20 @@ export default function Favorites({ kind = "favorite" }: { kind?: SaveKind }) {
 }
 
 function FavoritesList({ kind }: { kind: SaveKind }) {
+  const error = useFavoritesError();
   const items = useSaved(kind);
   const loaded = useFavoritesLoaded();
 
   return (
     <div className="w-full">
+      {error && (
+        <p role="alert" className="text-danger mt-4">
+          {error}{" "}
+          <button className="underline" onClick={() => void reloadFavorites()}>
+            Retry
+          </button>
+        </p>
+      )}
       <h1 className="text-text-primary text-xl font-extrabold tracking-tight">
         {copy[kind].heading}
       </h1>
@@ -45,7 +61,7 @@ function FavoritesList({ kind }: { kind: SaveKind }) {
               return (
                 <MediaCard
                   key={`${mediaType}-${item.id}`}
-                  href={item.href ?? `/${mediaType}?id=${item.id}`}
+                  href={mediaHref(item.href, mediaType, item.id)}
                   title={item.title}
                   subtitle={item.subtitle}
                   poster={item.poster}

@@ -1,5 +1,3 @@
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
 export interface Movie {
   id: number;
   title: string;
@@ -179,6 +177,9 @@ export type TrendingItem =
   (Movie & { media_type: "movie" }) | (TvShow & { media_type: "tv" });
 
 export interface TmdbListResponse<T> {
+  page?: number;
+  total_pages?: number;
+  total_results?: number;
   results: T[];
 }
 
@@ -187,12 +188,11 @@ async function tmdbFetch<T>(
   params: Record<string, string> = {},
   signal?: AbortSignal,
 ): Promise<T> {
-  const apiKey = import.meta.env.PUBLIC_TMDB_API_KEY;
-  const url = new URL(`${TMDB_BASE_URL}${path}`);
-  url.searchParams.set("api_key", apiKey);
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
+  if (import.meta.env.SSR) {
+    const { serverTmdb } = await import("./server/tmdb");
+    return serverTmdb<T>(path, params, signal);
   }
+  const url = `/api/tmdb?${new URLSearchParams({ path, ...params })}`;
 
   const res = await fetch(url, { signal });
   if (!res.ok) {
@@ -218,14 +218,61 @@ export async function searchMulti(
   query: string,
   signal?: AbortSignal,
 ): Promise<MultiResult[]> {
+  return (await searchPage(query, "all", 1, signal)).results;
+}
+
+export async function searchPage(
+  query: string,
+  tab: "all" | "movie" | "tv" | "person",
+  page: number,
+  signal?: AbortSignal,
+): Promise<TmdbListResponse<MultiResult>> {
   const data = await tmdbFetch<TmdbListResponse<MultiResult>>(
-    "/search/multi",
-
-    { query },
-
+    `/search/${tab === "all" ? "multi" : tab}`,
+    { query, page: String(page) },
     signal,
   );
-  return data.results;
+  return {
+    ...data,
+    results: data.results.map((item) =>
+      tab === "all" ? item : ({ ...item, media_type: tab } as MultiResult),
+    ),
+  };
+}
+
+export async function getProviderCatalog(region: string) {
+  const catalogs = await Promise.all(
+    ["movie", "tv"].map((type) =>
+      tmdbFetch<{ results: WatchProvider[] }>(`/watch/providers/${type}`, {
+        watch_region: region,
+      }),
+    ),
+  );
+  return {
+    results: [
+      ...new Map(
+        catalogs
+          .flatMap((catalog) => catalog.results)
+          .map((provider) => [provider.provider_id, provider]),
+      ).values(),
+    ].sort(
+      (a, b) =>
+        a.display_priority - b.display_priority ||
+        a.provider_name.localeCompare(b.provider_name),
+    ),
+  };
+}
+
+export async function getAvailability(
+  id: number,
+  type: "movie" | "tv",
+  signal?: AbortSignal,
+) {
+  return tmdbFetch<WatchProvidersResponse>(
+    `/${type}/${id}/watch/providers`,
+    {},
+    signal,
+  );
 }
 
 export async function getTrending(

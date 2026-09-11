@@ -11,3 +11,7 @@ assert.equal(safeNext(null), "/");
 assert.equal(safeNext(""), "/");
 
 console.log("gate.test.ts ok");
+assert.equal(safeNext("/\\example.org"), "/");
+assert.equal(safeNext("/\n/example.org"), "/");
+assert.equal(safeNext("///example.org"), "/");
+assert.equal(safeNext("/movie?id=123#cast"), "/movie?id=123#cast");

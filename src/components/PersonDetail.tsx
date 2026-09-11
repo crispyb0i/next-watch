@@ -1,3 +1,4 @@
+import type { PersonDetails } from "../lib/tmdb";
 import { useQuery } from "@tanstack/react-query";
 import {
   getPersonCredits,
@@ -64,8 +65,15 @@ function Filmography({ personId }: { personId: number }) {
   );
 }
 
-function PersonDetailInner({ personId }: { personId: number }) {
+function PersonDetailInner({
+  personId,
+  initialData,
+}: {
+  personId: number;
+  initialData?: PersonDetails;
+}) {
   const { data: person, isError } = useQuery({
+    initialData,
     queryKey: ["person", personId],
     queryFn: ({ signal }) => getPersonDetails(personId, signal),
   });
@@ -131,13 +139,15 @@ function PersonDetailInner({ personId }: { personId: number }) {
 
 export default function PersonDetail({
   personId,
+  initialData,
 }: {
   personId: number | null;
+  initialData?: PersonDetails;
 }) {
   return (
     <QueryProvider>
       {personId ? (
-        <PersonDetailInner personId={personId} />
+        <PersonDetailInner personId={personId} initialData={initialData} />
       ) : (
         <p className="text-text-muted text-center text-sm">
           No person specified.

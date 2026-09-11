@@ -1,3 +1,5 @@
+import ShowProgress from "./ShowProgress";
+import type { TvShowDetails } from "../lib/tmdb";
 import { useQuery } from "@tanstack/react-query";
 import {
   flattenAggregateCast,
@@ -64,9 +66,16 @@ function SeasonStrip({ tvId, seasons }: { tvId: number; seasons: Season[] }) {
   );
 }
 
-function TvDetailInner({ tvId }: { tvId: number }) {
+function TvDetailInner({
+  tvId,
+  initialData,
+}: {
+  tvId: number;
+  initialData?: TvShowDetails;
+}) {
   const region = useRegion();
   const detailsQuery = useQuery({
+    initialData,
     queryKey: ["tv", tvId],
     queryFn: ({ signal }) => getTvShowDetails(tvId, signal),
   });
@@ -111,6 +120,7 @@ function TvDetailInner({ tvId }: { tvId: number }) {
         <>
           <Trailer videos={show.videos?.results} />
           <WatchProviders providers={show["watch/providers"]} region={region} />
+          <ShowProgress tvId={tvId} seasons={show.seasons ?? []} />
           <SeasonStrip tvId={tvId} seasons={show.seasons ?? []} />
         </>
       }
@@ -137,11 +147,17 @@ function TvDetailInner({ tvId }: { tvId: number }) {
   );
 }
 
-export default function TvDetail({ tvId }: { tvId: number | null }) {
+export default function TvDetail({
+  tvId,
+  initialData,
+}: {
+  tvId: number | null;
+  initialData?: TvShowDetails;
+}) {
   return (
     <QueryProvider>
       {tvId ? (
-        <TvDetailInner tvId={tvId} />
+        <TvDetailInner tvId={tvId} initialData={initialData} />
       ) : (
         <p className="text-text-muted text-center text-sm">
           No show specified.

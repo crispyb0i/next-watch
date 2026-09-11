@@ -11,6 +11,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -87,29 +88,131 @@ export const favorites = pgTable(
 // unique index on (userId, tmdbId, season, episode, watchedOn) if duplicate
 // logs become a problem — rewatches make that a judgement call, so it is left
 // open.
-export const watchLog = pgTable("watch_log", {
-  id: serial("id").primaryKey(),
-  userId: text("user_id")
+export const watchLog = pgTable(
+  "watch_log",
+  {
+    id: serial("id").primaryKey(),
+    importKey: text("import_key"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id").notNull(),
+    mediaType: text("media_type")
+      .$type<"movie" | "tv">()
+      .notNull()
+      .default("movie"),
+    /** TV only. Null on movies and whole-show logs. */
+    season: integer("season"),
+    /** TV only. Null on movies, whole-show and whole-season logs. */
+    episode: integer("episode"),
+    title: text("title").notNull(),
+    poster: text("poster"),
+    subtitle: text("subtitle"),
+    /** 0.5-5 stars in half-star increments, null when not rated. */
+    rating: real("rating"),
+    review: text("review"),
+    /** Date only — nobody logs the minute they watched something. */
+    watchedOn: date("watched_on").notNull(),
+    rewatch: boolean("rewatch").notNull().default(false),
+    venue: text("venue"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("watch_log_user_date_idx").on(
+      table.userId,
+      table.watchedOn,
+      table.id,
+    ),
+    uniqueIndex("watch_log_import_idx").on(table.userId, table.importKey),
+  ],
+);
+
+export const movieNights = pgTable("movie_nights", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  tmdbId: integer("tmdb_id").notNull(),
-  mediaType: text("media_type")
-    .$type<"movie" | "tv">()
-    .notNull()
-    .default("movie"),
-  /** TV only. Null on movies and whole-show logs. */
-  season: integer("season"),
-  /** TV only. Null on movies, whole-show and whole-season logs. */
-  episode: integer("episode"),
   title: text("title").notNull(),
-  poster: text("poster"),
-  subtitle: text("subtitle"),
-  /** 0.5-5 stars in half-star increments, null when not rated. */
-  rating: real("rating"),
-  review: text("review"),
-  /** Date only — nobody logs the minute they watched something. */
-  watchedOn: date("watched_on").notNull(),
-  rewatch: boolean("rewatch").notNull().default(false),
-  venue: text("venue"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+export const nightMembers = pgTable(
+  "night_members",
+  {
+    nightId: text("night_id")
+      .notNull()
+      .references(() => movieNights.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.nightId, table.userId] }),
+    index("night_members_user_idx").on(table.userId),
+  ],
+);
+export const nightVotes = pgTable(
+  "night_votes",
+  {
+    nightId: text("night_id")
+      .notNull()
+      .references(() => movieNights.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id").notNull(),
+    mediaType: text("media_type").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.nightId, table.userId, table.tmdbId, table.mediaType],
+    }),
+  ],
+);
+export const viewingPreferences = pgTable("viewing_preferences", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  region: text("region").notNull().default("US"),
+  providerIds: text("provider_ids").notNull().default("[]"),
+  watchlistPublic: boolean("watchlist_public").notNull().default(false),
+});
+export const availabilitySnapshots = pgTable(
+  "availability_snapshots",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id").notNull(),
+    mediaType: text("media_type").notNull(),
+    region: text("region").notNull(),
+    providerIds: text("provider_ids").notNull(),
+    checkedAt: timestamp("checked_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.tmdbId, table.mediaType, table.region],
+    }),
+  ],
+);
+export const availabilityAlerts = pgTable(
+  "availability_alerts",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventKey: text("event_key").notNull(),
+    title: text("title").notNull(),
+    href: text("href").notNull(),
+    message: text("message").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    readAt: timestamp("read_at"),
+  },
+  (table) => [
+    index("availability_alerts_user_idx").on(table.userId, table.id),
+    uniqueIndex("availability_alerts_event_idx").on(
+      table.userId,
+      table.eventKey,
+    ),
+  ],
+);

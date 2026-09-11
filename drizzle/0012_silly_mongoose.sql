@@ -1,0 +1,2 @@
+ALTER TABLE "availability_alerts" ADD COLUMN "event_key" text NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "availability_alerts_event_idx" ON "availability_alerts" USING btree ("user_id","event_key");

@@ -1,7 +1,11 @@
 ---
+import AlertIndicator from "./AlertIndicator";
 import AuthMenu from "./AuthMenu.tsx";
 
 const links = [
+  // Movie nights is paused; restore this entry when the feature returns.
+  // { href: "/community", label: "Movie nights" },
+  { href: "/alerts", label: "Alerts" },
   { href: "/discover", label: "Discover" },
   { href: "/feed", label: "Friends" },
   { href: "/watched", label: "My log" },
@@ -14,7 +18,7 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
 ---
 
 <header class="border-border/60 bg-surface/70 sticky top-0 z-20 border-b backdrop-blur-xl">
-  <nav class="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6 lg:px-8 lg:py-4">
+  <nav class="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6 lg:px-8 lg:py-4">
     <a
       href="/"
       class="text-text-primary group flex min-w-0 shrink-0 items-center gap-2.5 text-base font-extrabold tracking-tight lg:gap-3 lg:text-lg"
@@ -25,27 +29,29 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
       <span class="hidden truncate sm:inline">Next Watch</span>
     </a>
 
-    <!-- Desktop: links inline; the disclosure below takes over under `lg`. -->
-    <div class="ml-2 hidden items-center gap-1 lg:flex">
-      {links.map((link) => (
-        <a
-          href={link.href}
-          aria-current={isActive(link.href) ? "page" : undefined}
-          class:list={[
-            "focus-visible:outline-accent rounded-full px-3 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2",
-            isActive(link.href)
-              ? "bg-accent/15 text-accent-hover"
-              : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
-          ]}
-        >
-          {link.label}
-        </a>
-      ))}
+    <!-- Desktop: links inline; the disclosure below takes over under `xl`. -->
+    <div class="ml-2 hidden shrink-0 items-center gap-1 xl:flex">
+      {links
+        .filter((link) => link.href !== "/alerts")
+        .map((link) => (
+          <a
+            href={link.href}
+            aria-current={isActive(link.href) ? "page" : undefined}
+            class:list={[
+              "focus-visible:outline-accent rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2",
+              isActive(link.href)
+                ? "bg-accent/15 text-accent-hover"
+                : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
+            ]}
+          >
+            {link.label}
+          </a>
+        ))}
     </div>
 
     <!-- Native disclosure keeps navigation keyboard-accessible without
          shipping menu-state JavaScript. -->
-    <details class="group ml-auto lg:hidden">
+    <details class="group ml-auto shrink-0 xl:hidden">
       <summary
         class="border-border/60 hover:border-accent focus-visible:outline-accent grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full border transition focus-visible:outline-2 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden"
         aria-label="Navigation menu"
@@ -75,7 +81,7 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
         </svg>
       </summary>
       <div class="border-border/60 bg-surface-elevated absolute inset-x-0 top-full border-b p-3 shadow-xl">
-        <div class="mx-auto grid max-w-5xl gap-1">
+        <div class="mx-auto grid max-w-7xl gap-1">
           {links.map((link) => (
             <a
               href={link.href}
@@ -120,7 +126,7 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
       role="search"
       action="/search"
       method="get"
-      class="group relative hidden min-w-0 flex-1 sm:block sm:max-w-xs lg:ml-auto lg:max-w-56 xl:max-w-xs"
+      class="group relative hidden flex-1 sm:block sm:min-w-40 sm:max-w-xs xl:ml-auto xl:max-w-56"
     >
       <span class="text-text-muted group-focus-within:text-accent pointer-events-none absolute inset-y-0 left-3 flex items-center transition">
         <svg
@@ -149,7 +155,8 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
       />
     </form>
 
-    <div class="shrink-0">
+    <div class="flex shrink-0 items-center gap-2">
+      <AlertIndicator client:load transition:persist="streaming-alerts" />
       <AuthMenu client:load transition:persist="auth-menu" />
     </div>
   </nav>

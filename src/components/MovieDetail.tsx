@@ -1,3 +1,4 @@
+import type { MovieDetails } from "../lib/tmdb";
 import { useQuery } from "@tanstack/react-query";
 import {
   getMovieDetails,
@@ -15,9 +16,16 @@ import Trailer from "./Trailer";
 import RelatedGrid from "./RelatedGrid";
 import WatchProviders from "./WatchProviders";
 
-function MovieDetailInner({ movieId }: { movieId: number }) {
+function MovieDetailInner({
+  movieId,
+  initialData,
+}: {
+  movieId: number;
+  initialData?: MovieDetails;
+}) {
   const region = useRegion();
   const detailsQuery = useQuery({
+    initialData,
     queryKey: ["movie", movieId],
     queryFn: ({ signal }) => getMovieDetails(movieId, signal),
   });
@@ -95,11 +103,17 @@ function MovieDetailInner({ movieId }: { movieId: number }) {
   );
 }
 
-export default function MovieDetail({ movieId }: { movieId: number | null }) {
+export default function MovieDetail({
+  movieId,
+  initialData,
+}: {
+  movieId: number | null;
+  initialData?: MovieDetails;
+}) {
   return (
     <QueryProvider>
       {movieId ? (
-        <MovieDetailInner movieId={movieId} />
+        <MovieDetailInner movieId={movieId} initialData={initialData} />
       ) : (
         <p className="text-text-muted text-center text-sm">
           No movie specified.

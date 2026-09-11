@@ -1,12 +1,14 @@
 ---
 export const prerender = false;
+import { isMissingSchema } from "../../lib/server/schemaErrors";
+import { mediaHref } from "../../lib/mediaHref";
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import Layout from "../../layouts/Layout.astro";
 import MediaCard from "../../components/MediaCard.tsx";
 import FollowButton from "../../components/FollowButton.tsx";
 import { db } from "../../db";
-import { favorites, users } from "../../db/schema";
+import { favorites, users, viewingPreferences } from "../../db/schema";
 import { displayName, followState } from "../../lib/follows";
 import { entryHref } from "../../lib/watchLog";
 import { listWatched } from "../api/watched";
@@ -35,7 +37,7 @@ const [rows, log, follow] = await Promise.all([
       href: favorites.href,
     })
     .from(favorites)
-    .where(eq(favorites.userId, user.id))
+    .where(and(eq(favorites.userId, user.id), eq(favorites.kind, "favorite")))
     .orderBy(desc(favorites.createdAt)),
   listWatched(user.id).limit(12),
   // Counts only: the viewer is unknown server-side (no bearer token on page
@@ -44,6 +46,25 @@ const [rows, log, follow] = await Promise.all([
 ]);
 
 const name = displayName(user);
+const [preferences] = await db
+  .select()
+  .from(viewingPreferences)
+  .where(eq(viewingPreferences.userId, user.id))
+  .catch((error: unknown) => {
+    // Keep existing profiles working while optional feature migrations are pending.
+    // With no verified preference, the watchlist stays private.
+    if (isMissingSchema(error)) return [];
+    throw error;
+  });
+const publicWatchlist = preferences?.watchlistPublic
+  ? await db
+      .select()
+      .from(favorites)
+      .where(
+        and(eq(favorites.userId, user.id), eq(favorites.kind, "watchlist")),
+      )
+      .limit(100)
+  : [];
 const initials = name.slice(0, 2).toUpperCase();
 
 const formatDate = (iso: string) =>
@@ -88,6 +109,24 @@ const formatDate = (iso: string) =>
       <FollowButton client:load userId={user.id} />
     </header>
 
+    {preferences?.watchlistPublic && (
+      <section class="mt-10">
+        <h2 class="text-xl font-bold">Watchlist</h2>
+        {publicWatchlist.length ? (
+          <ul class="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-4">
+            {publicWatchlist.map((item) => (
+              <MediaCard
+                href={`/${item.mediaType === "tv" ? "tv" : "movie"}?id=${item.tmdbId}`}
+                title={item.title}
+                poster={item.poster}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p>No titles on this watchlist yet.</p>
+        )}
+      </section>
+    )}
     <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
       Recently watched
     </h2>
@@ -145,7 +184,7 @@ const formatDate = (iso: string) =>
       <ul class="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {rows.map((movie) => (
           <MediaCard
-            href={movie.href || `/${movie.mediaType}?id=${movie.tmdbId}`}
+            href={mediaHref(movie.href, movie.mediaType, movie.tmdbId)}
             title={movie.title}
             subtitle={movie.subtitle}
             poster={movie.poster}

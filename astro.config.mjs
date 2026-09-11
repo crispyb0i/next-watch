@@ -14,6 +14,11 @@ export default defineConfig({
   prefetch: { prefetchAll: true, defaultStrategy: "hover" },
 
   vite: {
+    // Production builds must not race the running dev server for Vite cache.
+    cacheDir:
+      process.env.NODE_ENV === "production"
+        ? "node_modules/.vite-production"
+        : "node_modules/.vite",
     plugins: [tailwindcss()],
   },
 

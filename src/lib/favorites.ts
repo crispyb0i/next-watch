@@ -27,6 +27,9 @@ const listeners = new Set<() => void>();
 let cache: Favorite[] = EMPTY;
 let loaded = false;
 let hydrated = false;
+let loadError: string | null = null;
+let loading: Promise<void> | undefined;
+const mutations = new Map<string, Promise<unknown>>();
 
 function emit() {
   for (const listener of listeners) listener();
@@ -55,7 +58,8 @@ function readLocal(): Favorite[] {
             // Only same-origin paths — localStorage is user-writable, so a
             // stored `javascript:` or cross-origin href must never reach an <a>.
             (item.href == null ||
-              (typeof item.href === "string" && item.href.startsWith("/"))),
+              (typeof item.href === "string" &&
+                /^\/(?![\/\\])[^\\\u0000-\u0020]*$/.test(item.href))),
         )
       : EMPTY;
   } catch {
@@ -67,31 +71,57 @@ function writeLocal(next: Favorite[]) {
   localStorage.setItem(KEY, JSON.stringify(next));
 }
 
-async function load() {
-  const jwt = await token();
-  if (!jwt) {
-    cache = readLocal();
-    hydrated = true;
-    emit();
-    return;
-  }
+export function reloadFavorites() {
+  if (!loading)
+    loading = loadFavorites().finally(() => {
+      loading = undefined;
+    });
+  return loading;
+}
 
-  // First sign-in: push anything saved while signed out, then clear it.
+async function loadFavorites() {
   const pending = readLocal();
-  for (const item of pending) await post(item, jwt);
-  if (pending.length > 0) localStorage.removeItem(KEY);
+  loadError = null;
+  try {
+    const jwt = await token();
+    if (!jwt) {
+      cache = readLocal();
+      hydrated = true;
+      emit();
+      return;
+    }
 
-  const response = await fetch("/api/favorites", {
-    headers: { authorization: `Bearer ${jwt}` },
-  });
-  if (!response.ok) {
+    // First sign-in: push anything saved while signed out, then clear it.
+    const remaining: Favorite[] = [];
+    for (const item of pending) {
+      try {
+        if (!(await post(item, jwt)).ok) remaining.push(item);
+      } catch {
+        remaining.push(item);
+      }
+    }
+    if (pending.length > 0) writeLocal(remaining);
+
+    const response = await fetch("/api/favorites", {
+      headers: { authorization: `Bearer ${jwt}` },
+    });
+    if (!response.ok) {
+      throw new Error("Could not load saved items");
+    }
+    const remote: Favorite[] = await response.json();
+    cache = [
+      ...remote,
+      ...remaining.filter((item) => !remote.some((row) => same(row, item))),
+    ];
+    if (remaining.length)
+      loadError = "Some saved items could not sync. Your local copy is safe.";
+  } catch {
+    if (!cache.length) cache = pending;
+    loadError = "Could not load saved items. Retry when connected.";
+  } finally {
     hydrated = true;
     emit();
-    return;
   }
-  cache = await response.json();
-  hydrated = true;
-  emit();
 }
 
 function post(item: Favorite, jwt: string) {
@@ -139,47 +169,57 @@ export function saved(kind: SaveKind): Favorite[] {
   return cache.filter((item) => kindOf(item) === kind);
 }
 
-export async function toggleFavorite(item: Favorite) {
-  const removing = isFavorite(item.id, typeOf(item), kindOf(item));
-  const previous = cache;
-
-  // Optimistic: update now, roll back if the request fails.
-  cache = removing
-    ? cache.filter((entry) => !same(entry, item))
-    : [item, ...cache];
-  emit();
-
-  const jwt = await token();
-  if (!jwt) {
-    writeLocal(cache);
-    return { ok: true, removing };
-  }
-
-  const response = removing
-    ? await fetch(
-        `/api/favorites?tmdbId=${item.id}&mediaType=${typeOf(item)}` +
-          `&kind=${kindOf(item)}`,
-        {
-          method: "DELETE",
-          headers: { authorization: `Bearer ${jwt}` },
-        },
-      )
-    : await post(item, jwt);
-
-  if (!response.ok) {
-    cache = previous;
+export function toggleFavorite(
+  item: Favorite,
+): Promise<{ ok: boolean; removing: boolean }> {
+  const key = `${typeOf(item)}:${item.id}:${kindOf(item)}`;
+  const run = async () => {
+    if (loading) await loading;
+    if (!hydrated) await reloadFavorites();
+    const previous = cache.find((entry) => same(entry, item));
+    const removing = Boolean(previous);
+    cache = removing
+      ? cache.filter((entry) => !same(entry, item))
+      : [item, ...cache];
     emit();
-    return { ok: false, removing };
-  }
-
-  return { ok: true, removing };
+    try {
+      const jwt = await token();
+      if (!jwt) {
+        writeLocal(cache);
+      } else {
+        const response = removing
+          ? await fetch(
+              `/api/favorites?tmdbId=${item.id}&mediaType=${typeOf(item)}&kind=${kindOf(item)}`,
+              {
+                method: "DELETE",
+                headers: { authorization: `Bearer ${jwt}` },
+              },
+            )
+          : await post(item, jwt);
+        if (!response.ok) throw new Error("Save failed");
+      }
+      return { ok: true, removing };
+    } catch {
+      cache = cache.filter((entry) => !same(entry, item));
+      if (previous) cache = [previous, ...cache];
+      emit();
+      return { ok: false, removing };
+    }
+  };
+  const previous = mutations.get(key);
+  const result = previous ? previous.then(run, run) : run();
+  mutations.set(key, result);
+  void result.finally(() => {
+    if (mutations.get(key) === result) mutations.delete(key);
+  });
+  return result;
 }
 
 export function subscribe(listener: () => void) {
   listeners.add(listener);
   if (!loaded) {
     loaded = true;
-    void load();
+    void reloadFavorites();
   }
   return () => listeners.delete(listener);
 }
@@ -212,6 +252,14 @@ export function useFavoritesLoaded(): boolean {
     subscribe,
     () => hydrated,
     () => false,
+  );
+}
+
+export function useFavoritesError() {
+  return useSyncExternalStore(
+    subscribe,
+    () => loadError,
+    () => null,
   );
 }
 

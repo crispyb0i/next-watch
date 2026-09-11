@@ -1,5 +1,7 @@
 ---
 export const prerender = false;
+import { getTvShowDetails, getSeasonDetails } from "../../lib/tmdb";
+import { TmdbError } from "../../lib/server/tmdb";
 import Layout from "../../layouts/Layout.astro";
 import SeasonDetail from "../../components/SeasonDetail.tsx";
 import { parseId, parseSeasonNumber } from "../../components/MediaDetail";
@@ -7,8 +9,42 @@ import "../../styles/global.css";
 
 const tvId = parseId(Astro.url.searchParams.get("id"));
 const seasonNumber = parseSeasonNumber(Astro.url.searchParams.get("season"));
+let data, show;
+let failed = false;
+if (tvId && seasonNumber != null) {
+  try {
+    [show, data] = await Promise.all([
+      getTvShowDetails(tvId),
+      getSeasonDetails(tvId, seasonNumber),
+    ]);
+  } catch (error) {
+    Astro.response.status = error instanceof TmdbError ? error.status : 503;
+    failed = true;
+  }
+} else Astro.response.status = 400;
 ---
 
-<Layout>
-  <SeasonDetail tvId={tvId} seasonNumber={seasonNumber} client:load />
+<Layout
+  title={
+    show && data ? `${show.name} · ${data.name} — Next Watch` : "Next Watch"
+  }
+  description={
+    show ? `Track seasons of ${show.name} on Next Watch.` : undefined
+  }
+  noindex={!data}
+>
+  {failed ? (
+    <p role="alert">
+      Could not load this title.{" "}
+      <a href={Astro.url.pathname + Astro.url.search}>Try again</a>
+    </p>
+  ) : (
+    <SeasonDetail
+      tvId={tvId}
+      seasonNumber={seasonNumber}
+      initialData={data}
+      initialShow={show}
+      client:load
+    />
+  )}
 </Layout>

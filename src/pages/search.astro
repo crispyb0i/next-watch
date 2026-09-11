@@ -5,9 +5,20 @@ import Layout from "../layouts/Layout.astro";
 import Search from "../components/Search.tsx";
 import "../styles/global.css";
 
+const rawTab = Astro.url.searchParams.get("tab");
+const tab =
+  rawTab === "movie" ||
+  rawTab === "tv" ||
+  rawTab === "person" ||
+  rawTab === "users"
+    ? rawTab
+    : "all";
+const rawPage = Number(Astro.url.searchParams.get("page"));
+const page =
+  Number.isInteger(rawPage) && rawPage > 0 ? Math.min(rawPage, 500) : 1;
 const q = Astro.url.searchParams.get("q")?.trim().slice(0, 200) ?? "";
 ---
 
-<Layout>
-  <Search client:load initialQuery={q} />
+<Layout title={q ? `Search: ${q} — Next Watch` : "Search — Next Watch"} noindex>
+  <Search client:load initialQuery={q} initialTab={tab} initialPage={page} />
 </Layout>

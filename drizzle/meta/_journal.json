@@ -78,6 +78,20 @@
       "when": 1789107519202,
       "tag": "0010_moaning_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789153193300,
+      "tag": "0011_nosy_retro_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789153500363,
+      "tag": "0012_silly_mongoose",
+      "breakpoints": true
     }
   ]
 }

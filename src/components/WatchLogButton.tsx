@@ -133,12 +133,15 @@ export function LogForm({
     mutationFn: (entry: WatchEntryInput) => postEntry(entry, defaults?.id),
     onSuccess: (_data, entry) => {
       void queryClient.invalidateQueries({ queryKey: ["watched"] });
+      void queryClient.invalidateQueries({ queryKey: ["progress"] });
       // Watched it, so it is no longer something to watch. Rewatches and edits
       // leave the list alone.
       const mediaType = entry.mediaType ?? "movie";
       if (
         !editing &&
         !entry.rewatch &&
+        entry.season == null &&
+        entry.episode == null &&
         isFavorite(entry.tmdbId, mediaType, "watchlist")
       ) {
         void toggleFavorite({

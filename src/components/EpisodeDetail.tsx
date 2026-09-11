@@ -1,3 +1,7 @@
+import type { TvShowDetails, EpisodeDetails } from "../lib/tmdb";
+import { useState } from "react";
+import { useShowProgress } from "./ShowProgress";
+import { episodeWatched } from "../lib/progress";
 import { useQuery } from "@tanstack/react-query";
 import {
   episodeCode,
@@ -77,16 +81,27 @@ function EpisodeDetailInner({
   tvId,
   seasonNumber,
   episodeNumber,
+  initialShow,
+  initialData,
 }: {
   tvId: number;
   seasonNumber: number;
   episodeNumber: number;
+  initialShow?: TvShowDetails;
+  initialData?: EpisodeDetails;
 }) {
+  const progressQuery = useShowProgress(tvId);
+  const [revealed, setRevealed] = useState(false);
+  const showSpoilers =
+    revealed ||
+    episodeWatched(progressQuery.data ?? [], seasonNumber, episodeNumber);
   const showQuery = useQuery({
+    initialData: initialShow,
     queryKey: ["tv", tvId],
     queryFn: ({ signal }) => getTvShowDetails(tvId, signal),
   });
   const episodeQuery = useQuery({
+    initialData,
     queryKey: ["tv-episode", tvId, seasonNumber, episodeNumber],
     queryFn: ({ signal }) =>
       getEpisodeDetails(tvId, seasonNumber, episodeNumber, signal),
@@ -105,7 +120,7 @@ function EpisodeDetailInner({
   const episode = episodeQuery.data;
   const show = showQuery.data;
   const code = episodeCode(episode.season_number, episode.episode_number);
-  const still = stillUrl(episode.still_path, "w780");
+  const still = showSpoilers ? stillUrl(episode.still_path, "w780") : null;
   const aired =
     Boolean(episode.air_date) &&
     episode.air_date! <= new Date().toISOString().slice(0, 10);
@@ -133,6 +148,18 @@ function EpisodeDetailInner({
         </a>
       </nav>
 
+      {!episodeWatched(
+        progressQuery.data ?? [],
+        seasonNumber,
+        episodeNumber,
+      ) && (
+        <button
+          className="mt-5 underline"
+          onClick={() => setRevealed(!revealed)}
+        >
+          {revealed ? "Hide spoilers" : "Show episode spoilers"}
+        </button>
+      )}
       {still && (
         <div className="border-border/50 relative mt-4 aspect-video overflow-hidden rounded-3xl border">
           <img src={still} alt="" className="h-full w-full object-cover" />
@@ -190,7 +217,7 @@ function EpisodeDetailInner({
         )}
       </div>
 
-      {episode.overview && (
+      {showSpoilers && episode.overview && (
         <p className="text-text-muted mt-5 leading-relaxed">
           {episode.overview}
         </p>
@@ -203,7 +230,9 @@ function EpisodeDetailInner({
         </dl>
       )}
 
-      <CastGrid cast={episode.guest_stars} title="Guest stars" />
+      {showSpoilers && (
+        <CastGrid cast={episode.guest_stars} title="Guest stars" />
+      )}
 
       <nav className="border-border/60 mt-14 flex items-stretch justify-between gap-3 border-t pt-6">
         <EpisodeLink tvId={tvId} target={previous} direction="previous" />
@@ -217,15 +246,21 @@ export default function EpisodeDetail({
   tvId,
   seasonNumber,
   episodeNumber,
+  initialShow,
+  initialData,
 }: {
   tvId: number | null;
   seasonNumber: number | null;
   episodeNumber: number | null;
+  initialShow?: TvShowDetails;
+  initialData?: EpisodeDetails;
 }) {
   return (
     <QueryProvider>
       {tvId != null && seasonNumber != null && episodeNumber != null ? (
         <EpisodeDetailInner
+          initialShow={initialShow}
+          initialData={initialData}
           tvId={tvId}
           seasonNumber={seasonNumber}
           episodeNumber={episodeNumber}
