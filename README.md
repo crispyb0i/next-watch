@@ -1,46 +1,33 @@
-# Astro Starter Kit: Basics
+# Next Watch
+
+Discover movies and TV shows, save favorites, log watches, and follow friends.
+
+## Development
+
+Requires Node.js 22.12 or newer.
 
 ```sh
-npm create astro@latest -- --template basics
+npm install
+npm run dev
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Create `.env.local` with:
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
+```dotenv
+PUBLIC_TMDB_API_KEY=
+DATABASE_URL=
+NEON_AUTH_BASE_URL=
+NEON_AUTH_COOKIE_SECRET=
+PUBLIC_NEON_AUTH_URL=
 ```
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+## Commands
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+| Command               | Action                       |
+| --------------------- | ---------------------------- |
+| `npm run dev`         | Start development server     |
+| `npm run build`       | Build production app         |
+| `npm run preview`     | Preview production build     |
+| `npm run db:generate` | Generate database migrations |
+| `npm run db:migrate`  | Run database migrations      |
+| `npm run db:studio`   | Open Drizzle Studio          |

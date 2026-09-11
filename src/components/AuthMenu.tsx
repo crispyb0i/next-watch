@@ -48,7 +48,7 @@ export default function AuthMenu() {
 
   if (isPending) {
     return (
-      <div className="bg-surface-muted h-9 w-9 animate-pulse rounded-full" />
+      <div className="bg-surface-muted h-10 w-10 animate-pulse rounded-full" />
     );
   }
 
@@ -56,7 +56,7 @@ export default function AuthMenu() {
     return (
       <a
         href="/auth/sign-in"
-        className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-full px-4 py-1.5 font-semibold transition"
+        className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-full px-4 py-2 font-semibold transition"
       >
         Sign in
       </a>
@@ -73,7 +73,7 @@ export default function AuthMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
-        className="border-border/60 hover:border-accent focus-visible:outline-accent block h-9 w-9 overflow-hidden rounded-full border transition focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="border-border/60 hover:border-accent focus-visible:outline-accent block h-10 w-10 overflow-hidden rounded-full border transition focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         {image ? (
           <img
@@ -83,7 +83,7 @@ export default function AuthMenu() {
             referrerPolicy="no-referrer"
           />
         ) : (
-          <span className="from-brand-400 to-brand-600 text-accent-contrast flex h-full w-full items-center justify-center bg-linear-to-br text-xs font-bold">
+          <span className="from-brand-400 to-brand-600 text-accent-contrast flex h-full w-full items-center justify-center bg-linear-to-br text-sm font-bold">
             {initials(name, email)}
           </span>
         )}

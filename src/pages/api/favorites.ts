@@ -51,7 +51,9 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "tmdbId and title are required" }, 400);
   }
 
-  await syncUser(request, id);
+  if (!(await syncUser(request, id))) {
+    return json({ error: "token is missing an email claim" }, 403);
+  }
   await db
     .insert(favorites)
     .values({

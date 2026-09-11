@@ -4,8 +4,12 @@ export const prerender = false;
 import { desc, eq } from "drizzle-orm";
 import Layout from "../../layouts/Layout.astro";
 import MediaCard from "../../components/MediaCard.tsx";
+import FollowButton from "../../components/FollowButton.tsx";
 import { db } from "../../db";
 import { favorites, users } from "../../db/schema";
+import { displayName, followState } from "../../lib/follows";
+import { entryHref } from "../../lib/watchLog";
+import { listWatched } from "../api/watched";
 import "../../styles/global.css";
 
 // Favorites change under this page, so never serve it from the HTTP cache.
@@ -19,26 +23,40 @@ const [user] = id
 
 if (!user) return new Response("User not found", { status: 404 });
 
-const rows = await db
-  .select({
-    tmdbId: favorites.tmdbId,
-    title: favorites.title,
-    poster: favorites.poster,
-    subtitle: favorites.subtitle,
-    rating: favorites.rating,
-  })
-  .from(favorites)
-  .where(eq(favorites.userId, user.id))
-  .orderBy(desc(favorites.createdAt));
+const [rows, log, follow] = await Promise.all([
+  db
+    .select({
+      tmdbId: favorites.tmdbId,
+      title: favorites.title,
+      poster: favorites.poster,
+      subtitle: favorites.subtitle,
+      rating: favorites.rating,
+      href: favorites.href,
+    })
+    .from(favorites)
+    .where(eq(favorites.userId, user.id))
+    .orderBy(desc(favorites.createdAt)),
+  listWatched(user.id).limit(12),
+  // Counts only: the viewer is unknown server-side (no bearer token on page
+  // requests), so FollowButton resolves its own state after mount.
+  followState(user.id, null),
+]);
 
-const displayName = user.name || user.email.split("@")[0];
-const initials = displayName.slice(0, 2).toUpperCase();
+const name = displayName(user);
+const initials = name.slice(0, 2).toUpperCase();
+
+const formatDate = (iso: string) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 ---
 
 <Layout>
   <div class="w-full">
-    <header class="flex items-center gap-4">
-      <div class="border-border/60 bg-surface-muted h-16 w-16 shrink-0 overflow-hidden rounded-full border">
+    <header class="flex items-center gap-5 sm:gap-6">
+      <div class="border-border/60 bg-surface-muted h-20 w-20 shrink-0 overflow-hidden rounded-full border sm:h-24 sm:w-24">
         {user.image ? (
           <img
             src={user.image}
@@ -47,20 +65,74 @@ const initials = displayName.slice(0, 2).toUpperCase();
             referrerpolicy="no-referrer"
           />
         ) : (
-          <span class="from-brand-400 to-brand-600 text-accent-contrast flex h-full w-full items-center justify-center bg-linear-to-br text-lg font-bold">
+          <span class="from-brand-400 to-brand-600 text-accent-contrast flex h-full w-full items-center justify-center bg-linear-to-br text-2xl font-bold sm:text-3xl">
             {initials}
           </span>
         )}
       </div>
-      <div class="min-w-0">
-        <h1 class="text-text-primary truncate text-2xl font-black tracking-tight">
-          {displayName}
+      <div class="min-w-0 flex-1">
+        <h1 class="text-text-primary truncate text-3xl font-black tracking-tight sm:text-4xl">
+          {name}
         </h1>
-        <p class="text-text-muted text-sm">
+        <p class="text-text-muted mt-1 text-base sm:text-lg">
+          <strong class="text-text-primary">{follow.followers}</strong>{" "}
+          {follow.followers === 1 ? "follower" : "followers"}
+          <span aria-hidden="true"> · </span>
+          <strong class="text-text-primary">{follow.following}</strong>{" "}
+          following
+          <span aria-hidden="true"> · </span>
           {rows.length} {rows.length === 1 ? "favorite" : "favorites"}
         </p>
       </div>
+      <FollowButton client:load userId={user.id} />
     </header>
+
+    <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
+      Recently watched
+    </h2>
+
+    {log.length === 0 ? (
+      <p class="text-text-muted mt-6 text-sm">Nothing logged yet.</p>
+    ) : (
+      <ul class="mt-6 space-y-3">
+        {log.map((entry) => (
+          <li class="border-border/60 bg-surface-muted/30 flex gap-4 rounded-2xl border p-4">
+            <a href={entryHref(entry)} class="shrink-0">
+              {entry.poster ? (
+                <img
+                  src={entry.poster}
+                  alt={entry.title}
+                  loading="lazy"
+                  class="bg-surface-muted aspect-[2/3] w-16 rounded-lg object-cover"
+                />
+              ) : (
+                <div class="bg-surface-muted aspect-[2/3] w-16 rounded-lg"></div>
+              )}
+            </a>
+            <div class="min-w-0">
+              <a
+                href={entryHref(entry)}
+                class="text-text-primary font-bold hover:underline"
+              >
+                {entry.title}
+              </a>
+              <p class="text-text-muted mt-1 text-xs">
+                {formatDate(entry.watchedOn)}
+                {entry.rating != null && (
+                  <span> · {"★".repeat(Math.round(entry.rating))}</span>
+                )}
+                {entry.rewatch && <span> · rewatch</span>}
+              </p>
+              {entry.review && (
+                <p class="text-text-secondary mt-2 line-clamp-3 text-sm">
+                  {entry.review}
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
 
     <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
       Favorites
@@ -72,7 +144,7 @@ const initials = displayName.slice(0, 2).toUpperCase();
       <ul class="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {rows.map((movie) => (
           <MediaCard
-            href={`/movie?id=${movie.tmdbId}`}
+            href={movie.href || `/movie?id=${movie.tmdbId}`}
             title={movie.title}
             subtitle={movie.subtitle}
             poster={movie.poster}

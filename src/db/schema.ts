@@ -1,6 +1,9 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
+  index,
   integer,
   pgTable,
   primaryKey,
@@ -18,13 +21,36 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ponytail: movies only, and `userId` is the auth `sub` with no FK to `users`
-// (nothing populates that table yet). Add the FK plus a `mediaType` column when
-// user profiles or TV favorites land.
+// ponytail: no `status` column — follows are public and instant, so a row means
+// "following". Add status plus a pending state if private accounts land.
+export const follows = pgTable(
+  "follows",
+  {
+    followerId: text("follower_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    followeeId: text("followee_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.followerId, table.followeeId] }),
+    // The feed reads "who does X follow", the profile reads "who follows X".
+    // The PK covers the first direction; this index covers the second.
+    index("follows_followee_idx").on(table.followeeId),
+    // Self-follow would put the user in their own feed.
+    check("follows_no_self", sql`${table.followerId} <> ${table.followeeId}`),
+  ],
+);
+
+// ponytail: movies only. Add a `mediaType` column when TV favorites land.
 export const favorites = pgTable(
   "favorites",
   {
-    userId: text("user_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     tmdbId: integer("tmdb_id").notNull(),
     // ponytail: one text column instead of (mediaType, season, episode) — the
     // favorites grid only ever needs somewhere to link. Break it into typed
@@ -39,16 +65,21 @@ export const favorites = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.tmdbId] })],
 );
 
-// ponytail: one flat table, `userId` is the auth `sub` with no FK (same as
-// `favorites`). `tmdbId` is always the *show* id for TV; `season`/`episode`
-// narrow it. Both null = whole movie or whole show. Add a unique index on
-// (userId, tmdbId, season, episode, watchedOn) if duplicate logs become a
-// problem — rewatches make that a judgement call, so it is left open.
+// ponytail: one flat table. `tmdbId` is always the *show* id for TV;
+// `season`/`episode` narrow it. Both null = whole movie or whole show. Add a
+// unique index on (userId, tmdbId, season, episode, watchedOn) if duplicate
+// logs become a problem — rewatches make that a judgement call, so it is left
+// open.
 export const watchLog = pgTable("watch_log", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   tmdbId: integer("tmdb_id").notNull(),
-  mediaType: text("media_type").notNull().default("movie"),
+  mediaType: text("media_type")
+    .$type<"movie" | "tv">()
+    .notNull()
+    .default("movie"),
   /** TV only. Null on movies and whole-show logs. */
   season: integer("season"),
   /** TV only. Null on movies, whole-show and whole-season logs. */

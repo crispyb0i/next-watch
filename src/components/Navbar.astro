@@ -3,32 +3,38 @@ import AuthMenu from "./AuthMenu.tsx";
 ---
 
 <header class="border-border/60 bg-surface/70 sticky top-0 z-20 border-b backdrop-blur-xl">
-  <nav class="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-3.5 sm:px-6 lg:px-8">
+  <nav class="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4 sm:px-6 lg:px-8">
     <a
       href="/"
-      class="text-text-primary group flex items-center gap-2.5 text-base font-extrabold tracking-tight"
+      class="text-text-primary group flex items-center gap-3 text-lg font-extrabold tracking-tight"
     >
-      <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br text-sm shadow-lg transition group-hover:scale-105">
+      <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br text-base shadow-lg transition group-hover:scale-105">
         🎬
       </span>
       Next Watch
     </a>
-    <div class="text-text-muted flex items-center gap-2 text-sm font-medium">
+    <div class="text-text-muted flex items-center gap-2 text-base font-medium">
       <a
         href="/discover"
-        class="hover:text-text-primary rounded-full px-3 py-1.5 transition"
+        class="hover:text-text-primary rounded-full px-3.5 py-2 transition"
       >
         Discover
       </a>
       <a
+        href="/feed"
+        class="hover:text-text-primary rounded-full px-3.5 py-2 transition"
+      >
+        Friends
+      </a>
+      <a
         href="/watched"
-        class="hover:text-text-primary rounded-full px-3 py-1.5 transition"
+        class="hover:text-text-primary rounded-full px-3.5 py-2 transition"
       >
         My log
       </a>
       <a
         href="/favorites"
-        class="hover:text-text-primary rounded-full px-3 py-1.5 transition"
+        class="hover:text-text-primary rounded-full px-3.5 py-2 transition"
       >
         Favorites
       </a>

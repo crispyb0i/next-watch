@@ -58,7 +58,9 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = parseEntry(body);
   if (!parsed.ok) return json({ error: parsed.error }, 400);
 
-  await syncUser(request, id);
+  if (!(await syncUser(request, id))) {
+    return json({ error: "token is missing an email claim" }, 403);
+  }
   const [row] = await db
     .insert(watchLog)
     .values({ userId: id, ...parsed.value })

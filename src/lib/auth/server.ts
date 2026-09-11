@@ -29,11 +29,15 @@ export async function sessionUserId(request: Request) {
 /**
  * Mirror the token's profile claims into `users` so profile pages have a name to
  * show. Called on write only — reads don't need it.
+ *
+ * Returns false when the token carries no email, meaning no `users` row exists.
+ * Callers must not insert in that case: `favorites.userId` and `watchLog.userId`
+ * are FKs, so the write would fail anyway.
  */
 export async function syncUser(request: Request, id: string) {
   const payload = await verifySession(request);
   const email = typeof payload?.email === "string" ? payload.email : null;
-  if (!email) return;
+  if (!email) return false;
 
   const profile = {
     name: typeof payload?.name === "string" ? payload.name : null,
@@ -44,4 +48,6 @@ export async function syncUser(request: Request, id: string) {
     .insert(users)
     .values({ id, email, ...profile })
     .onConflictDoUpdate({ target: users.id, set: profile });
+
+  return true;
 }

@@ -50,6 +50,20 @@
       "when": 1789089051261,
       "tag": "0006_nifty_tigra",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789095092572,
+      "tag": "0007_abnormal_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789095429403,
+      "tag": "0008_heavy_maggott",
+      "breakpoints": true
     }
   ]
 }
