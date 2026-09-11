@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   NeonAuthUIProvider,
   ChangeEmailCard,
@@ -8,14 +8,15 @@ import {
   UpdateNameCard,
   type SettingsCardClassNames,
 } from "@neondatabase/auth-ui";
-import { authClient } from "../lib/auth/client";
+import { authClient, syncCurrentProfile } from "../lib/auth/client";
+import { notify, type NotificationKind } from "../lib/notifications";
 
 // The vendor cards ship shadcn defaults; map their slots onto our design tokens
 // so settings reads like the rest of the app.
 const cardClassNames: SettingsCardClassNames = {
-  // Colour and shape only — the cards own their spacing, and overriding the
-  // padding pulls the avatar out past the card edge.
-  base: "border-border/60 bg-surface-elevated/70 shadow-card rounded-card border backdrop-blur-xl",
+  // Vendor card headers need more breathing room, but horizontal padding must
+  // stay on their child slots or the avatar can overflow on narrow screens.
+  base: "border-border/60 bg-surface-elevated/70 shadow-card rounded-card border pt-8 backdrop-blur-xl [&_[data-slot=dropdown-menu-trigger]]:me-8",
   title: "text-text-primary text-base font-bold tracking-tight",
   description: "text-text-muted text-sm",
   footer: "border-border/60 bg-surface-muted/40 rounded-b-card text-text-muted",
@@ -68,10 +69,24 @@ function Section({
 
 function SettingsCards() {
   const { data: session, isPending } = authClient.useSession();
+  const previousImage = useRef<string | null>(null);
+  const hasImage = useRef(false);
 
   useEffect(() => {
     if (!isPending && !session) window.location.href = "/auth/sign-in";
   }, [isPending, session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const image = session.user.image ?? null;
+    if (hasImage.current && image !== previousImage.current) {
+      notify(image ? "Avatar uploaded successfully." : "Avatar removed.");
+    }
+    previousImage.current = image;
+    hasImage.current = true;
+
+    void syncCurrentProfile({ name: session.user.name, image });
+  }, [session?.user.image, session?.user.name]);
 
   if (isPending || !session) {
     return (
@@ -88,10 +103,7 @@ function SettingsCards() {
 
   return (
     <div className="flex flex-col gap-10">
-      <Section
-        title="Profile"
-        description="How you show up across Movie Search."
-      >
+      <Section title="Profile" description="How you show up across Next Watch.">
         <UpdateAvatarCard classNames={cardClassNames} />
         <UpdateNameCard classNames={cardClassNames} />
       </Section>
@@ -110,7 +122,20 @@ function SettingsCards() {
 
 export default function AccountSettings() {
   return (
-    <NeonAuthUIProvider authClient={authClient} avatar>
+    <NeonAuthUIProvider
+      authClient={authClient}
+      avatar
+      toast={({ variant = "info", message }) =>
+        notify(
+          message ?? "Account settings updated.",
+          (variant === "error"
+            ? "error"
+            : variant === "success"
+              ? "success"
+              : "info") as NotificationKind,
+        )
+      }
+    >
       <SettingsCards />
     </NeonAuthUIProvider>
   );

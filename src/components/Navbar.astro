@@ -11,16 +11,28 @@ import AuthMenu from "./AuthMenu.tsx";
       <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br text-sm shadow-lg transition group-hover:scale-105">
         🎬
       </span>
-      Movie Search
+      Next Watch
     </a>
     <div class="text-text-muted flex items-center gap-2 text-sm font-medium">
+      <a
+        href="/discover"
+        class="hover:text-text-primary rounded-full px-3 py-1.5 transition"
+      >
+        Discover
+      </a>
+      <a
+        href="/watched"
+        class="hover:text-text-primary rounded-full px-3 py-1.5 transition"
+      >
+        My log
+      </a>
       <a
         href="/favorites"
         class="hover:text-text-primary rounded-full px-3 py-1.5 transition"
       >
         Favorites
       </a>
-      <AuthMenu client:load />
+      <AuthMenu client:load transition:persist="auth-menu" />
     </div>
   </nav>
 </header>

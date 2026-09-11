@@ -1,18 +1,21 @@
 ---
 import Container from "../components/Container.astro";
 import Navbar from "../components/Navbar.astro";
+import ToastHost from "../components/ToastHost.tsx";
+import { ClientRouter } from "astro:transitions";
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <ClientRouter />
     <meta name="viewport" content="width=device-width" />
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="generator" content={Astro.generator} />
-    <title>Movie Search</title>
+    <title>Next Watch</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,7 +23,7 @@ import Navbar from "../components/Navbar.astro";
       rel="stylesheet"
     />
   </head>
-  <body class="bg-surface text-text-primary min-h-screen font-sans antialiased">
+  <body class="bg-surface text-text-primary min-h-screen overflow-x-clip font-sans antialiased">
     <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       <div class="bg-accent/25 absolute -top-40 left-1/2 h-[32rem] w-[52rem] -translate-x-1/2 rounded-full blur-[120px]"></div>
       <div class="bg-brand-400/15 absolute top-1/3 -right-40 h-96 w-96 rounded-full blur-[120px]"></div>
@@ -30,6 +33,7 @@ import Navbar from "../components/Navbar.astro";
       ></div>
     </div>
     <Navbar />
+    <ToastHost client:load />
     <Container>
       <slot />
     </Container>
