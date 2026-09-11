@@ -10,9 +10,31 @@ const pathname = path ?? "sign-in";
 ---
 
 <Layout>
-  <div class="flex justify-center">
-    <div class="w-full max-w-sm">
+  <section class="mx-auto grid min-h-[calc(100vh-12rem)] max-w-4xl items-center gap-10 lg:grid-cols-[1fr_24rem]">
+    <div class="hidden lg:block">
+      <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br text-2xl shadow-lg">
+        🎬
+      </span>
+      <p class="text-accent mt-6 text-sm font-bold tracking-widest uppercase">
+        Next Watch
+      </p>
+      <h1 class="text-text-primary mt-3 text-5xl font-black tracking-tighter text-balance">
+        Your next great watch starts here.
+      </h1>
+      <p class="text-text-muted mt-5 max-w-md text-lg leading-relaxed">
+        Discover movies and shows, keep your watch log, and see what friends are
+        watching.
+      </p>
+    </div>
+
+    <div class="w-full max-w-sm justify-self-center lg:max-w-none">
+      <div class="mb-7 text-center lg:hidden">
+        <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br text-xl shadow-lg">
+          🎬
+        </span>
+        <p class="text-text-primary mt-3 text-xl font-black">Next Watch</p>
+      </div>
       <AuthView pathname={pathname} client:load />
     </div>
-  </div>
+  </section>
 </Layout>
