@@ -5,12 +5,12 @@ import {
 import { authClient } from "../lib/auth/client";
 
 const classNames = {
-  base: "border-border/60 bg-surface-elevated/85 shadow-card rounded-3xl border backdrop-blur-xl",
-  header: "space-y-2 px-6 pt-6 sm:px-8 sm:pt-8",
-  title: "text-text-primary text-2xl font-black tracking-tight",
+  base: "border-border/60 bg-surface-elevated/85 shadow-card w-full min-w-0 rounded-2xl border backdrop-blur-xl sm:rounded-3xl",
+  header: "space-y-2 px-4 pt-5 sm:px-8 sm:pt-8",
+  title: "text-text-primary text-xl font-black tracking-tight sm:text-2xl",
   description: "text-text-muted text-sm",
-  content: "px-6 pb-6 sm:px-8 sm:pb-8",
-  footer: "border-border/60 border-t px-6 py-4 sm:px-8",
+  content: "px-4 pb-5 sm:px-8 sm:pb-8",
+  footer: "border-border/60 border-t px-4 py-4 text-center sm:px-8",
   footerLink: "text-accent hover:text-accent-hover font-semibold",
   separator: "bg-border",
   continueWith: "text-text-muted",

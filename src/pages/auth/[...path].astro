@@ -10,7 +10,7 @@ const pathname = path ?? "sign-in";
 ---
 
 <Layout>
-  <section class="mx-auto grid min-h-[calc(100vh-12rem)] max-w-4xl items-center gap-10 lg:grid-cols-[1fr_24rem]">
+  <section class="mx-auto grid w-full max-w-4xl items-start gap-10 sm:min-h-[calc(100vh-12rem)] sm:items-center lg:grid-cols-[1fr_24rem]">
     <div class="hidden lg:block">
       <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br text-2xl shadow-lg">
         🎬
@@ -27,8 +27,8 @@ const pathname = path ?? "sign-in";
       </p>
     </div>
 
-    <div class="w-full max-w-sm justify-self-center lg:max-w-none">
-      <div class="mb-7 text-center lg:hidden">
+    <div class="w-full min-w-0 max-w-sm justify-self-center lg:max-w-none">
+      <div class="mb-5 text-center sm:mb-7 lg:hidden">
         <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br text-xl shadow-lg">
           🎬
         </span>

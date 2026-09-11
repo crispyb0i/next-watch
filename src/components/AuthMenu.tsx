@@ -56,7 +56,7 @@ export default function AuthMenu() {
     return (
       <a
         href="/auth/sign-in"
-        className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-full px-4 py-2 font-semibold transition"
+        className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-full px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition sm:px-4 sm:text-base"
       >
         Sign in
       </a>
