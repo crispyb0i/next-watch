@@ -70,7 +70,8 @@ function DiscoverInner() {
         </FilterGroup>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      {/* Scrolls rather than wraps on narrow screens — see Search tabs. */}
+      <div className="-mx-4 mt-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
         <FilterGroup label="List">
           {(tab === "movie" ? MOVIE_LISTS : TV_LISTS).map(
             ({ label, value }) => (

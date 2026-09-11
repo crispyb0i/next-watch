@@ -41,11 +41,12 @@ function TrendingInner() {
 
   return (
     <div className="w-full">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
           Trending
         </h2>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Scrolls rather than wraps on narrow screens — see Search tabs. */}
+        <div className="-mx-4 flex w-[calc(100%+2rem)] [scrollbar-width:none] items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
           <FilterGroup label="Media type">
             {MEDIA_TYPES.map(({ label, value }) => (
               <FilterButton

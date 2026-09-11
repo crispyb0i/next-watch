@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { searchMulti, posterUrl, profileUrl } from "../lib/tmdb";
 import type { MultiResult } from "../lib/tmdb";
@@ -7,17 +7,6 @@ import MediaCard from "./MediaCard";
 import Trending from "./Trending";
 import ImageGroup from "./ImageGroup";
 import { PosterGridSkeleton } from "./Skeleton";
-
-function useDebouncedValue<T>(value: T, delayMs: number) {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timeout);
-  }, [value, delayMs]);
-
-  return debounced;
-}
 
 function SearchIcon() {
   return (
@@ -111,31 +100,30 @@ function toCard(item: MultiResult) {
 
 function SearchInner() {
   const [query, setQuery] = useState("");
+  // Only a submit moves `query` into `submitted`, so typing costs no requests.
+  const [submitted, setSubmitted] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   // `@name` is the power-user shortcut into the Users tab.
-  const isUserQuery = query.startsWith("@");
+  const isUserQuery = submitted.startsWith("@");
   const activeTab: Tab = isUserQuery ? "users" : tab;
-  const debouncedQuery = useDebouncedValue(
-    isUserQuery ? query.slice(1) : query,
-    300,
-  );
+  const term = isUserQuery ? submitted.slice(1) : submitted;
 
   const media = useQuery({
-    queryKey: ["search", debouncedQuery],
-    queryFn: ({ signal }) => searchMulti(debouncedQuery, signal),
-    enabled: activeTab !== "users" && debouncedQuery.length > 0,
+    queryKey: ["search", term],
+    queryFn: ({ signal }) => searchMulti(term, signal),
+    enabled: activeTab !== "users" && term.length > 0,
   });
 
   const people = useQuery({
-    queryKey: ["users", debouncedQuery],
+    queryKey: ["users", term],
     queryFn: ({ signal }) =>
-      fetch(`/api/users?q=${encodeURIComponent(debouncedQuery)}`, {
+      fetch(`/api/users?q=${encodeURIComponent(term)}`, {
         signal,
       }).then((r): Promise<UserResult[]> => {
         if (!r.ok) throw new Error("user search failed");
         return r.json();
       }),
-    enabled: activeTab === "users" && debouncedQuery.length > 1,
+    enabled: activeTab === "users" && term.length > 1,
   });
 
   const { isFetching, isError } = activeTab === "users" ? people : media;
@@ -146,35 +134,53 @@ function SearchInner() {
   const users = people.data ?? [];
   const count = activeTab === "users" ? users.length : results.length;
 
-  const isSearchActive = debouncedQuery.length > 0;
+  const isSearchActive = term.length > 0;
   const showEmptyState = isSearchActive && !isFetching && !isError && !count;
 
   return (
     <div className="w-full">
       <div className="mx-auto w-full max-w-2xl">
-        <div className="group relative">
-          <span className="text-text-muted group-focus-within:text-accent pointer-events-none absolute inset-y-0 left-5 flex items-center transition">
+        <form
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSubmitted(query.trim());
+          }}
+          className="group relative"
+        >
+          <span className="text-text-muted group-focus-within:text-accent pointer-events-none absolute inset-y-0 left-4 flex items-center transition sm:left-5">
             <SearchIcon />
           </span>
           <input
-            type="text"
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            // iOS shows a "Search" key and submits on Enter with these.
+            enterKeyHint="search"
+            autoCapitalize="none"
+            autoCorrect="off"
             placeholder="Search movies, TV, people…"
             aria-label="Search"
-            className="border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted shadow-card focus:border-accent focus:ring-accent/25 w-full rounded-2xl border py-4 pr-12 pl-13 text-base backdrop-blur-xl transition outline-none focus:ring-4"
+            className="border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted shadow-card focus:border-accent focus:ring-accent/25 w-full rounded-2xl border py-3.5 pr-28 pl-11 text-base backdrop-blur-xl transition outline-none focus:ring-4 sm:py-4 sm:pr-32 sm:pl-13 [&::-webkit-search-cancel-button]:hidden"
           />
-          {isFetching && (
-            <span className="absolute inset-y-0 right-4 flex items-center">
-              <Spinner />
-            </span>
-          )}
-        </div>
+          <div className="absolute inset-y-0 right-2 flex items-center gap-1.5">
+            {isFetching && <Spinner />}
+            <button
+              type="submit"
+              disabled={!query.trim()}
+              className="bg-accent text-accent-contrast hover:bg-accent-hover focus-visible:outline-accent rounded-xl px-4 py-2 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40"
+            >
+              Search
+            </button>
+          </div>
+        </form>
 
+        {/* Horizontal scroll instead of wrapping: five pills never fit one
+            phone row, and a stray second row reads as a layout bug. */}
         <div
           role="tablist"
           aria-label="Result type"
-          className="mt-4 flex flex-wrap justify-center gap-2"
+          className="-mx-4 mt-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
         >
           {TABS.map(([value, label]) => (
             <button
@@ -184,9 +190,12 @@ function SearchInner() {
               aria-selected={activeTab === value}
               onClick={() => {
                 setTab(value);
-                if (isUserQuery && value !== "users") setQuery(query.slice(1));
+                if (isUserQuery && value !== "users") {
+                  setQuery(term);
+                  setSubmitted(term);
+                }
               }}
-              className={`rounded-full border px-4 py-1.5 text-sm transition ${
+              className={`shrink-0 rounded-full border px-4 py-2 text-sm whitespace-nowrap transition ${
                 activeTab === value
                   ? "border-accent bg-accent/15 text-accent"
                   : "border-border/60 text-text-muted hover:text-text-primary"
@@ -205,7 +214,7 @@ function SearchInner() {
 
         {showEmptyState && (
           <p className="text-text-muted mt-6 text-center text-sm">
-            No results for “{debouncedQuery}”.
+            No results for “{term}”.
           </p>
         )}
       </div>
@@ -248,7 +257,7 @@ function SearchInner() {
       )}
 
       {activeTab !== "users" && results.length > 0 && (
-        <ImageGroup key={`${debouncedQuery}:${activeTab}`}>
+        <ImageGroup key={`${term}:${activeTab}`}>
           <ul className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {results.map((item) => (
               <MediaCard
