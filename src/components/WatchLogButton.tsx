@@ -2,7 +2,9 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getJWTToken } from "../lib/auth/client";
 import { todayISO, type WatchEntryInput } from "../lib/watchLog";
+import { isFavorite, toggleFavorite } from "../lib/favorites";
 import { notify } from "../lib/notifications";
+import { requireAuth } from "../lib/auth/gate";
 import QueryProvider from "./QueryProvider";
 
 /** Create, or replace `entryId` when editing an existing log. */
@@ -129,8 +131,24 @@ export function LogForm({
   const editing = defaults?.id != null;
   const save = useMutation({
     mutationFn: (entry: WatchEntryInput) => postEntry(entry, defaults?.id),
-    onSuccess: () => {
+    onSuccess: (_data, entry) => {
       void queryClient.invalidateQueries({ queryKey: ["watched"] });
+      // Watched it, so it is no longer something to watch. Rewatches and edits
+      // leave the list alone.
+      const mediaType = entry.mediaType ?? "movie";
+      if (
+        !editing &&
+        !entry.rewatch &&
+        isFavorite(entry.tmdbId, mediaType, "watchlist")
+      ) {
+        void toggleFavorite({
+          id: entry.tmdbId,
+          mediaType,
+          kind: "watchlist",
+          title: entry.title,
+          poster: entry.poster ?? null,
+        });
+      }
       onDone();
       notify(editing ? "Log updated." : "Added to your watch log.");
     },
@@ -245,7 +263,9 @@ export default function WatchLogButton({
     <QueryProvider>
       <button
         type="button"
-        onClick={() => dialog.current?.showModal()}
+        onClick={async () => {
+          if (await requireAuth()) dialog.current?.showModal();
+        }}
         className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${className}`}
       >
         + Log watch

@@ -10,6 +10,7 @@ import {
 } from "@neondatabase/auth-ui";
 import { authClient, syncCurrentProfile } from "../lib/auth/client";
 import { notify, type NotificationKind } from "../lib/notifications";
+import { signInHref } from "../lib/auth/gate";
 
 // The vendor cards ship shadcn defaults; map their slots onto our design tokens
 // so settings reads like the rest of the app.
@@ -73,7 +74,7 @@ function SettingsCards() {
   const hasImage = useRef(false);
 
   useEffect(() => {
-    if (!isPending && !session) window.location.href = "/auth/sign-in";
+    if (!isPending && !session) location.replace(signInHref());
   }, [isPending, session]);
 
   useEffect(() => {

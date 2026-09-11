@@ -32,7 +32,7 @@ let ok = true;
   return { ok, json: async () => [] };
 };
 
-const { getFavorites, isFavorite, toggleFavorite, _resetForTest } =
+const { getFavorites, isFavorite, saved, toggleFavorite, _resetForTest } =
   await import("./favorites.ts");
 
 const movie = { id: 1, title: "Dune", poster: null };
@@ -59,7 +59,9 @@ assert.equal(store.has("favorites"), false);
 
 calls = [];
 await toggleFavorite(movie);
-assert.deepEqual(calls, ["DELETE /api/favorites?tmdbId=1&mediaType=movie"]);
+assert.deepEqual(calls, [
+  "DELETE /api/favorites?tmdbId=1&mediaType=movie&kind=favorite",
+]);
 
 // --- a show and a movie sharing a TMDB id are separate favorites
 calls = [];
@@ -78,7 +80,35 @@ assert.equal(isFavorite(1, "tv"), true, "show favorited too");
 await toggleFavorite(show);
 assert.equal(isFavorite(1, "tv"), false, "show removed");
 assert.equal(isFavorite(1), true, "movie untouched by the show's removal");
-assert.deepEqual(calls.at(-1), "DELETE /api/favorites?tmdbId=1&mediaType=tv");
+assert.deepEqual(
+  calls.at(-1),
+  "DELETE /api/favorites?tmdbId=1&mediaType=tv&kind=favorite",
+);
+
+// --- favorite and watchlist are independent lists for the same title
+calls = [];
+_resetForTest();
+const wish = { ...movie, kind: "watchlist" as const };
+await toggleFavorite(movie);
+await toggleFavorite(wish);
+assert.equal(isFavorite(1), true, "favorited");
+assert.equal(isFavorite(1, "movie", "watchlist"), true, "watchlisted");
+assert.deepEqual(
+  saved("watchlist").map((item) => item.id),
+  [1],
+);
+assert.deepEqual(
+  saved("favorite").map((item) => item.id),
+  [1],
+);
+
+await toggleFavorite(wish);
+assert.equal(isFavorite(1, "movie", "watchlist"), false, "watchlist removed");
+assert.equal(isFavorite(1), true, "favorite untouched");
+assert.equal(
+  calls.at(-1),
+  "DELETE /api/favorites?tmdbId=1&mediaType=movie&kind=watchlist",
+);
 
 // --- failed request rolls the optimistic update back
 ok = false;
@@ -89,7 +119,10 @@ assert.equal(isFavorite(1), false, "rolled back after failure");
 // --- garbage in storage is filtered, not fatal
 ok = true;
 (globalThis as any).__jwt = undefined;
-store.set("favorites", '[{"id":"nope"},null,{"id":2,"title":"Arrival"}]');
+store.set(
+  "favorites",
+  '[{"id":"nope"},null,{"id":2,"title":"Arrival","kind":"evil"}]',
+);
 _resetForTest();
 await toggleFavorite({ id: 3, title: "Her", poster: null });
 assert.deepEqual(

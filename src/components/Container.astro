@@ -8,7 +8,9 @@ const { class: className } = Astro.props;
 
 <div
   class:list={[
-    "mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-14 lg:px-8",
+    // Bottom gets more room than top: content ending flush with the viewport
+    // edge reads as cut off, and it clears iOS Safari's floating toolbar.
+    "mx-auto w-full max-w-5xl px-4 pt-6 pb-24 sm:px-6 sm:pt-14 sm:pb-32 lg:px-8",
     className,
   ]}
 >

@@ -14,6 +14,10 @@ const json = (body: unknown, status = 200) =>
 
 const userId = sessionUserId;
 
+/** Trust boundary: anything not "watchlist" is a favorite. */
+const kindOf = (value: unknown) =>
+  value === "watchlist" ? "watchlist" : "favorite";
+
 export const GET: APIRoute = async ({ request }) => {
   const id = await userId(request);
   if (!id) return json({ error: "unauthorized" }, 401);
@@ -27,6 +31,7 @@ export const GET: APIRoute = async ({ request }) => {
       subtitle: favorites.subtitle,
       rating: favorites.rating,
       href: favorites.href,
+      kind: favorites.kind,
     })
     .from(favorites)
     .where(eq(favorites.userId, id))
@@ -53,6 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const mediaType = item.mediaType === "tv" ? "tv" : "movie";
+  const kind = kindOf(item.kind);
 
   if (!(await syncUser(request, id))) {
     return json({ error: "token is missing an email claim" }, 403);
@@ -63,6 +69,7 @@ export const POST: APIRoute = async ({ request }) => {
       userId: id,
       tmdbId: item.tmdbId as number,
       mediaType,
+      kind,
       title: item.title.slice(0, 300),
       poster: typeof item.poster === "string" ? item.poster : null,
       subtitle: typeof item.subtitle === "string" ? item.subtitle : null,
@@ -86,6 +93,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!Number.isInteger(tmdbId)) return json({ error: "bad tmdbId" }, 400);
 
   const mediaType = url.searchParams.get("mediaType") === "tv" ? "tv" : "movie";
+  const kind = kindOf(url.searchParams.get("kind"));
 
   await db
     .delete(favorites)
@@ -94,6 +102,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
         eq(favorites.userId, id),
         eq(favorites.tmdbId, tmdbId),
         eq(favorites.mediaType, mediaType),
+        eq(favorites.kind, kind),
       ),
     );
 

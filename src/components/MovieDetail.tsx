@@ -1,25 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  getMovieCredits,
   getMovieDetails,
+  movieCertification,
+  pickRelated,
   posterUrl,
   backdropUrl,
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
-import MediaDetail from "./MediaDetail";
+import MediaDetail, { useRegion } from "./MediaDetail";
 import FavoriteButton from "./FavoriteButton";
 import WatchLogButton from "./WatchLogButton";
 import { DetailSkeleton } from "./Skeleton";
 import Trailer from "./Trailer";
+import RelatedGrid from "./RelatedGrid";
+import WatchProviders from "./WatchProviders";
 
 function MovieDetailInner({ movieId }: { movieId: number }) {
+  const region = useRegion();
   const detailsQuery = useQuery({
     queryKey: ["movie", movieId],
     queryFn: ({ signal }) => getMovieDetails(movieId, signal),
-  });
-  const creditsQuery = useQuery({
-    queryKey: ["movie-credits", movieId],
-    queryFn: ({ signal }) => getMovieCredits(movieId, signal),
   });
 
   if (detailsQuery.isError) {
@@ -48,21 +48,39 @@ function MovieDetailInner({ movieId }: { movieId: number }) {
       meta={meta}
       genres={movie.genres.map((genre) => genre.name)}
       voteAverage={movie.vote_average}
+      certification={movieCertification(movie, region)}
       overview={movie.overview}
-      cast={creditsQuery.data?.cast ?? []}
-      before={<Trailer videos={movie.videos?.results} />}
+      cast={movie.credits?.cast ?? []}
+      before={
+        <>
+          <Trailer videos={movie.videos?.results} />
+          <WatchProviders
+            providers={movie["watch/providers"]}
+            region={region}
+          />
+        </>
+      }
+      after={
+        <RelatedGrid
+          items={pickRelated(movie.recommendations, movie.similar)}
+          mediaType="movie"
+        />
+      }
       actions={
         <>
-          <FavoriteButton
-            item={{
-              id: movie.id,
-              title: movie.title,
-              poster: posterUrl(movie.poster_path),
-              subtitle: movie.release_date?.slice(0, 4),
-              rating: movie.vote_average,
-            }}
-            className="mt-1 shrink-0"
-          />
+          {(["favorite", "watchlist"] as const).map((kind) => (
+            <FavoriteButton
+              key={kind}
+              item={{
+                id: movie.id,
+                kind,
+                title: movie.title,
+                poster: posterUrl(movie.poster_path),
+                subtitle: movie.release_date?.slice(0, 4),
+                rating: movie.vote_average,
+              }}
+            />
+          ))}
           <WatchLogButton
             item={{
               tmdbId: movie.id,
@@ -70,7 +88,6 @@ function MovieDetailInner({ movieId }: { movieId: number }) {
               poster: posterUrl(movie.poster_path),
               subtitle: movie.release_date?.slice(0, 4),
             }}
-            className="mt-0.5"
           />
         </>
       }

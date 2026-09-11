@@ -21,7 +21,7 @@ export function DetailSkeleton({ backdrop = true }: { backdrop?: boolean }) {
   return (
     <div className="w-full animate-pulse" aria-hidden="true">
       {backdrop && (
-        <div className="bg-surface-muted/40 relative left-1/2 -mt-8 h-[46vh] max-h-[34rem] min-h-64 w-screen -translate-x-1/2 sm:-mt-14 sm:h-[56vh]" />
+        <div className="bg-surface-muted/40 relative left-1/2 -mt-8 h-[56vh] max-h-[28rem] min-h-80 w-screen -translate-x-1/2 sm:-mt-14 sm:h-[68vh] sm:max-h-[36rem]" />
       )}
       <div
         className={`flex flex-col gap-8 sm:flex-row sm:items-start ${

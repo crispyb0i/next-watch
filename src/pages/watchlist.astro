@@ -1,0 +1,9 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Favorites from "../components/Favorites.tsx";
+import "../styles/global.css";
+---
+
+<Layout>
+  <Favorites kind="watchlist" client:load />
+</Layout>

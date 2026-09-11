@@ -1,28 +1,46 @@
-import { useFavorites, useFavoritesLoaded } from "../lib/favorites";
+import { useFavoritesLoaded, useSaved, type SaveKind } from "../lib/favorites";
 import MediaCard from "./MediaCard";
 import ImageGroup from "./ImageGroup";
 import { PosterGridSkeleton } from "./Skeleton";
+import AuthGate from "./AuthGate";
 
-export default function Favorites() {
-  const favorites = useFavorites();
+const copy = {
+  favorite: {
+    heading: "Favorites",
+    empty: "No favorites yet. Tap the heart on any movie or show to save it.",
+  },
+  watchlist: {
+    heading: "Watchlist",
+    empty: "Nothing on your watchlist. Tap + on any movie or show to add it.",
+  },
+} as const;
+
+export default function Favorites({ kind = "favorite" }: { kind?: SaveKind }) {
+  return (
+    <AuthGate>
+      <FavoritesList kind={kind} />
+    </AuthGate>
+  );
+}
+
+function FavoritesList({ kind }: { kind: SaveKind }) {
+  const items = useSaved(kind);
   const loaded = useFavoritesLoaded();
 
   return (
     <div className="w-full">
       <h1 className="text-text-primary text-xl font-extrabold tracking-tight">
-        Favorites
+        {copy[kind].heading}
       </h1>
 
       {!loaded ? (
         <PosterGridSkeleton count={5} />
-      ) : favorites.length === 0 ? (
-        <p className="text-text-muted mt-6 text-sm">
-          No favorites yet. Tap the heart on any movie or show to save it.
-        </p>
+      ) : items.length === 0 ? (
+        <p className="text-text-muted mt-6 text-sm">{copy[kind].empty}</p>
       ) : (
         <ImageGroup>
           <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {favorites.map((item) => {
+            {items.map((item) => {
               const mediaType = item.mediaType ?? "movie";
               return (
                 <MediaCard
@@ -32,8 +50,6 @@ export default function Favorites() {
                   subtitle={item.subtitle}
                   poster={item.poster}
                   rating={item.rating}
-                  favoriteId={item.id}
-                  mediaType={mediaType}
                 />
               );
             })}

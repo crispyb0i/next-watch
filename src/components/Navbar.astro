@@ -5,36 +5,47 @@ const links = [
   { href: "/discover", label: "Discover" },
   { href: "/feed", label: "Friends" },
   { href: "/watched", label: "My log" },
+  { href: "/watchlist", label: "Watchlist" },
   { href: "/favorites", label: "Favorites" },
 ];
+
+const path = Astro.url.pathname;
+const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
 ---
 
 <header class="border-border/60 bg-surface/70 sticky top-0 z-20 border-b backdrop-blur-xl">
-  <nav class="mx-auto grid w-full max-w-5xl grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-3 sm:px-6 lg:flex lg:justify-between lg:px-8 lg:py-4">
+  <nav class="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6 lg:px-8 lg:py-4">
     <a
       href="/"
-      class="text-text-primary group flex min-w-0 items-center gap-2.5 text-base font-extrabold tracking-tight lg:gap-3 lg:text-lg"
+      class="text-text-primary group flex min-w-0 shrink-0 items-center gap-2.5 text-base font-extrabold tracking-tight lg:gap-3 lg:text-lg"
     >
       <span class="from-brand-400 to-brand-600 shadow-accent/30 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br text-base shadow-lg transition group-hover:scale-105">
         🎬
       </span>
-      <span class="truncate">Next Watch</span>
+      <span class="hidden truncate sm:inline">Next Watch</span>
     </a>
 
-    <div class="text-text-muted hidden items-center gap-2 text-base font-medium lg:flex">
+    <!-- Desktop: links inline; the disclosure below takes over under `lg`. -->
+    <div class="ml-2 hidden items-center gap-1 lg:flex">
       {links.map((link) => (
         <a
           href={link.href}
-          class="hover:text-text-primary whitespace-nowrap rounded-full px-3.5 py-2 transition"
+          aria-current={isActive(link.href) ? "page" : undefined}
+          class:list={[
+            "focus-visible:outline-accent rounded-full px-3 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2",
+            isActive(link.href)
+              ? "bg-accent/15 text-accent-hover"
+              : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
+          ]}
         >
           {link.label}
         </a>
       ))}
     </div>
 
-    <!-- Native disclosure keeps mobile navigation keyboard-accessible without
+    <!-- Native disclosure keeps navigation keyboard-accessible without
          shipping menu-state JavaScript. -->
-    <details class="group lg:hidden">
+    <details class="group ml-auto lg:hidden">
       <summary
         class="border-border/60 hover:border-accent focus-visible:outline-accent grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full border transition focus-visible:outline-2 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden"
         aria-label="Navigation menu"
@@ -68,7 +79,13 @@ const links = [
           {links.map((link) => (
             <a
               href={link.href}
-              class="text-text-secondary hover:bg-surface-muted hover:text-text-primary focus-visible:outline-accent flex min-h-11 items-center rounded-xl px-4 font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+              aria-current={isActive(link.href) ? "page" : undefined}
+              class:list={[
+                "focus-visible:outline-accent flex min-h-11 items-center rounded-xl px-4 font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
+                isActive(link.href)
+                  ? "bg-accent/15 text-accent-hover"
+                  : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
+              ]}
             >
               {link.label}
             </a>
@@ -77,7 +94,62 @@ const links = [
       </div>
     </details>
 
-    <div class="justify-self-end lg:order-3">
+    <!-- Mobile: icon link to the dedicated search page. -->
+    <a
+      href="/search"
+      aria-label="Search"
+      class="border-border/60 hover:border-accent focus-visible:outline-accent grid h-10 w-10 shrink-0 place-items-center rounded-full border transition focus-visible:outline-2 focus-visible:outline-offset-2 sm:hidden"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        class="h-5 w-5"
+      >
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.3-4.3"></path>
+      </svg>
+    </a>
+
+    <!-- Plain GET form: /search reads `q` and renders results. -->
+    <form
+      role="search"
+      action="/search"
+      method="get"
+      class="group relative hidden min-w-0 flex-1 sm:block sm:max-w-xs lg:ml-auto lg:max-w-56 xl:max-w-xs"
+    >
+      <span class="text-text-muted group-focus-within:text-accent pointer-events-none absolute inset-y-0 left-3 flex items-center transition">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          class="h-4 w-4"
+        >
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+      </span>
+      <input
+        type="search"
+        name="q"
+        enterkeyhint="search"
+        autocapitalize="none"
+        autocorrect="off"
+        placeholder="Search…"
+        aria-label="Search"
+        class="border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted focus:border-accent focus:ring-accent/25 h-10 w-full rounded-full border pr-3 pl-9 text-sm transition outline-none focus:ring-4 [&::-webkit-search-cancel-button]:hidden"
+      />
+    </form>
+
+    <div class="shrink-0">
       <AuthMenu client:load transition:persist="auth-menu" />
     </div>
   </nav>

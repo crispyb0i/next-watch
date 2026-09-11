@@ -44,6 +44,10 @@ export const follows = pgTable(
   ],
 );
 
+// Saved items. `kind` splits the two lists: "favorite" (loved it) and
+// "watchlist" (want to watch). Same columns, same reads, so one table.
+// ponytail: split into its own table if watchlist grows columns favorites
+// never need (priority, reminders, added-from).
 export const favorites = pgTable(
   "favorites",
   {
@@ -51,6 +55,10 @@ export const favorites = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     tmdbId: integer("tmdb_id").notNull(),
+    kind: text("kind")
+      .$type<"favorite" | "watchlist">()
+      .notNull()
+      .default("favorite"),
     // Part of the key: TMDB ids are only unique per media type, so a movie and
     // a show can share one.
     mediaType: text("media_type")
@@ -68,7 +76,9 @@ export const favorites = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
-    primaryKey({ columns: [table.userId, table.tmdbId, table.mediaType] }),
+    primaryKey({
+      columns: [table.userId, table.tmdbId, table.mediaType, table.kind],
+    }),
   ],
 );
 

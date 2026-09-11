@@ -85,7 +85,6 @@ function toCard(item: MultiResult) {
       subtitle: item.first_air_date?.slice(0, 4),
       poster: posterUrl(item.poster_path),
       rating: item.vote_average,
-      favoriteId: item.id,
       mediaType: "tv" as const,
     };
   return {
@@ -94,14 +93,13 @@ function toCard(item: MultiResult) {
     subtitle: item.release_date?.slice(0, 4),
     poster: posterUrl(item.poster_path),
     rating: item.vote_average,
-    favoriteId: item.id,
   };
 }
 
-function SearchInner() {
-  const [query, setQuery] = useState("");
+function SearchInner({ initialQuery = "" }: { initialQuery?: string }) {
+  const [query, setQuery] = useState(initialQuery);
   // Only a submit moves `query` into `submitted`, so typing costs no requests.
-  const [submitted, setSubmitted] = useState("");
+  const [submitted, setSubmitted] = useState(initialQuery);
   const [tab, setTab] = useState<Tab>("all");
   // `@name` is the power-user shortcut into the Users tab.
   const isUserQuery = submitted.startsWith("@");
@@ -140,6 +138,9 @@ function SearchInner() {
   return (
     <div className="w-full">
       <div className="mx-auto w-full max-w-2xl">
+        <h1 className="text-text-primary mb-6 text-2xl font-extrabold tracking-tight">
+          Search
+        </h1>
         <form
           role="search"
           onSubmit={(event) => {
@@ -161,6 +162,7 @@ function SearchInner() {
             autoCorrect="off"
             placeholder="Search movies, TV, people…"
             aria-label="Search"
+            autoFocus={!initialQuery}
             className="border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted shadow-card focus:border-accent focus:ring-accent/25 w-full rounded-2xl border py-3.5 pr-28 pl-11 text-base backdrop-blur-xl transition outline-none focus:ring-4 sm:py-4 sm:pr-32 sm:pl-13 [&::-webkit-search-cancel-button]:hidden"
           />
           <div className="absolute inset-y-0 right-2 flex items-center gap-1.5">
@@ -278,10 +280,10 @@ function SearchInner() {
   );
 }
 
-export default function Search() {
+export default function Search({ initialQuery }: { initialQuery?: string }) {
   return (
     <QueryProvider>
-      <SearchInner />
+      <SearchInner initialQuery={initialQuery} />
     </QueryProvider>
   );
 }

@@ -3,6 +3,7 @@ import {
   AuthView as NeonAuthView,
 } from "@neondatabase/auth-ui";
 import { authClient } from "../lib/auth/client";
+import { safeNext } from "../lib/auth/gate";
 
 const classNames = {
   base: "border-border/60 bg-surface-elevated/85 shadow-card w-full min-w-0 rounded-2xl border backdrop-blur-xl sm:rounded-3xl",
@@ -30,8 +31,19 @@ const classNames = {
 };
 
 export default function AuthView({ pathname }: { pathname: string }) {
+  // Read on the client: the page is prerendered, so the query string isn't
+  // known at build time.
+  const redirectTo =
+    typeof location === "undefined"
+      ? "/"
+      : safeNext(new URLSearchParams(location.search).get("redirect"));
+
   return (
-    <NeonAuthUIProvider authClient={authClient} className="next-watch-auth">
+    <NeonAuthUIProvider
+      authClient={authClient}
+      className="next-watch-auth"
+      redirectTo={redirectTo}
+    >
       <NeonAuthView pathname={pathname} classNames={classNames} />
     </NeonAuthUIProvider>
   );

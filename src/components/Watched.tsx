@@ -6,6 +6,7 @@ import { notify } from "../lib/notifications";
 import QueryProvider from "./QueryProvider";
 import { LogForm } from "./WatchLogButton";
 import { PosterGridSkeleton } from "./Skeleton";
+import AuthGate from "./AuthGate";
 
 async function fetchWatched(): Promise<WatchEntry[] | null> {
   const jwt = await getJWTToken();
@@ -231,7 +232,9 @@ function WatchedInner() {
 export default function Watched() {
   return (
     <QueryProvider>
-      <WatchedInner />
+      <AuthGate>
+        <WatchedInner />
+      </AuthGate>
     </QueryProvider>
   );
 }

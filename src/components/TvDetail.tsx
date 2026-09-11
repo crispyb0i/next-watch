@@ -1,15 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  getTvShowCredits,
+  flattenAggregateCast,
   getTvShowDetails,
+  pickRelated,
   posterUrl,
   backdropUrl,
+  tvCertification,
   type Season,
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
-import MediaDetail from "./MediaDetail";
+import MediaDetail, { useRegion } from "./MediaDetail";
 import FavoriteButton from "./FavoriteButton";
 import Trailer from "./Trailer";
+import RelatedGrid from "./RelatedGrid";
+import WatchProviders from "./WatchProviders";
 import { DetailSkeleton } from "./Skeleton";
 
 function SeasonStrip({ tvId, seasons }: { tvId: number; seasons: Season[] }) {
@@ -61,13 +65,10 @@ function SeasonStrip({ tvId, seasons }: { tvId: number; seasons: Season[] }) {
 }
 
 function TvDetailInner({ tvId }: { tvId: number }) {
+  const region = useRegion();
   const detailsQuery = useQuery({
     queryKey: ["tv", tvId],
     queryFn: ({ signal }) => getTvShowDetails(tvId, signal),
-  });
-  const creditsQuery = useQuery({
-    queryKey: ["tv-credits", tvId],
-    queryFn: ({ signal }) => getTvShowCredits(tvId, signal),
   });
 
   if (detailsQuery.isError) {
@@ -97,27 +98,40 @@ function TvDetailInner({ tvId }: { tvId: number }) {
       meta={meta}
       genres={show.genres.map((genre) => genre.name)}
       voteAverage={show.vote_average}
+      certification={tvCertification(show, region)}
       overview={show.overview}
-      cast={creditsQuery.data?.cast ?? []}
+      cast={flattenAggregateCast(show.aggregate_credits)}
+      after={
+        <RelatedGrid
+          items={pickRelated(show.recommendations, show.similar)}
+          mediaType="tv"
+        />
+      }
       before={
         <>
           <Trailer videos={show.videos?.results} />
+          <WatchProviders providers={show["watch/providers"]} region={region} />
           <SeasonStrip tvId={tvId} seasons={show.seasons ?? []} />
         </>
       }
       actions={
-        <FavoriteButton
-          item={{
-            id: show.id,
-            mediaType: "tv",
-            title: show.name,
-            poster: posterUrl(show.poster_path),
-            subtitle: show.first_air_date?.slice(0, 4),
-            rating: show.vote_average,
-            href: `/tv?id=${show.id}`,
-          }}
-          className="mt-1 shrink-0"
-        />
+        <>
+          {(["favorite", "watchlist"] as const).map((kind) => (
+            <FavoriteButton
+              key={kind}
+              item={{
+                id: show.id,
+                mediaType: "tv",
+                kind,
+                title: show.name,
+                poster: posterUrl(show.poster_path),
+                subtitle: show.first_air_date?.slice(0, 4),
+                rating: show.vote_average,
+                href: `/tv?id=${show.id}`,
+              }}
+            />
+          ))}
+        </>
       }
     />
   );

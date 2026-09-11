@@ -1,5 +1,14 @@
+import { useEffect, useState } from "react";
 import type { CastMember } from "../lib/tmdb";
-import { profileUrl } from "../lib/tmdb";
+import { profileUrl, userRegion } from "../lib/tmdb";
+
+/** `US` on the server, the real region after hydration. Read post-mount so
+ *  the SSR markup and first client render agree. */
+export function useRegion(): string {
+  const [region, setRegion] = useState("US");
+  useEffect(() => setRegion(userRegion()), []);
+  return region;
+}
 import ImageGroup, { useGroupImage } from "./ImageGroup";
 
 /** Parsed server-side so detail pages never hydrate a "not specified" flash. */
@@ -92,10 +101,12 @@ export default function MediaDetail({
   meta,
   genres,
   voteAverage,
+  certification,
   overview,
   cast,
   actions,
   before,
+  after,
 }: {
   backdrop: string | null;
   /** `original` source, served to wide viewports so the full-bleed hero isn't upscaled. */
@@ -106,11 +117,15 @@ export default function MediaDetail({
   meta: string[];
   genres: string[];
   voteAverage: number;
+  /** Region content rating, e.g. `PG-13` / `TV-MA`. */
+  certification?: string | null;
   overview: string;
   cast: CastMember[];
   actions?: React.ReactNode;
   /** Rendered between the header and the cast grid (seasons, etc.). */
   before?: React.ReactNode;
+  /** Rendered after the cast grid (recommendations, etc.). */
+  after?: React.ReactNode;
 }) {
   return (
     <div className="w-full">
@@ -119,7 +134,7 @@ export default function MediaDetail({
            page background on every edge so the content can sit on top of it. */
         <div
           aria-hidden="true"
-          className="relative left-1/2 -mt-8 h-[46vh] max-h-[34rem] min-h-64 w-screen -translate-x-1/2 sm:-mt-14 sm:h-[56vh]"
+          className="relative left-1/2 -mt-8 h-[56vh] max-h-[28rem] min-h-80 w-screen -translate-x-1/2 sm:-mt-14 sm:h-[68vh] sm:max-h-[36rem]"
         >
           <img
             src={backdrop}
@@ -149,27 +164,26 @@ export default function MediaDetail({
           backdrop ? "relative z-10 -mt-24 sm:-mt-32" : ""
         }`}
       >
-        <div className="bg-surface-muted shadow-card border-border/60 w-40 shrink-0 overflow-hidden rounded-2xl border sm:w-52">
-          {poster ? (
-            <img
-              src={poster}
-              alt={title}
-              className="aspect-[2/3] w-full object-cover"
-            />
-          ) : (
-            <div className="text-text-muted flex aspect-[2/3] w-full items-center justify-center text-sm">
-              No image
-            </div>
-          )}
+        <div className="w-40 shrink-0 sm:w-52">
+          <div className="bg-surface-muted shadow-card border-border/60 overflow-hidden rounded-2xl border">
+            {poster ? (
+              <img
+                src={poster}
+                alt={title}
+                className="aspect-[2/3] w-full object-cover"
+              />
+            ) : (
+              <div className="text-text-muted flex aspect-[2/3] w-full items-center justify-center text-sm">
+                No image
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="min-w-0">
-          <div className="flex items-start gap-3">
-            <h1 className="text-text-primary text-3xl font-black tracking-tighter text-balance sm:text-4xl">
-              {title}
-            </h1>
-            {actions}
-          </div>
+          <h1 className="text-text-primary text-3xl font-black tracking-tighter text-balance sm:text-4xl">
+            {title}
+          </h1>
           {tagline && (
             <p className="text-text-muted mt-2 text-sm italic">{tagline}</p>
           )}
@@ -178,6 +192,11 @@ export default function MediaDetail({
             {meta.map((item) => (
               <span key={item}>{item}</span>
             ))}
+            {certification && (
+              <span className="border-border text-text-muted rounded border px-1.5 py-0.5 text-xs font-bold">
+                {certification}
+              </span>
+            )}
             {voteAverage > 0 && (
               <span className="text-star border-star/30 bg-star/10 rounded-full border px-2.5 py-0.5 font-bold">
                 ★ {voteAverage.toFixed(1)}
@@ -198,6 +217,10 @@ export default function MediaDetail({
             </div>
           )}
 
+          {actions && (
+            <div className="mt-5 flex flex-wrap gap-2">{actions}</div>
+          )}
+
           {overview && (
             <p className="text-text-muted mt-5 leading-relaxed">{overview}</p>
           )}
@@ -206,6 +229,7 @@ export default function MediaDetail({
 
       {before}
       <CastGrid cast={cast} />
+      {after}
     </div>
   );
 }

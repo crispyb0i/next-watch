@@ -3,6 +3,7 @@ import { authClient, getJWTToken } from "../lib/auth/client";
 import { entryHref } from "../lib/watchLog";
 import QueryProvider from "./QueryProvider";
 import { PosterGridSkeleton } from "./Skeleton";
+import AuthGate from "./AuthGate";
 
 interface FeedEntry {
   id: number;
@@ -106,16 +107,7 @@ function FeedList() {
     enabled: Boolean(session),
   });
 
-  if (isPending) return <PosterGridSkeleton />;
-
-  if (!session)
-    return (
-      <p className="text-text-muted text-sm">
-        Sign in to see what the people you follow are watching.
-      </p>
-    );
-
-  if (isLoading) return <PosterGridSkeleton />;
+  if (isPending || isLoading) return <PosterGridSkeleton />;
   if (error)
     return <p className="text-danger text-sm">{(error as Error).message}</p>;
 
@@ -144,7 +136,9 @@ export default function Feed() {
           Friends' activity
         </h1>
         <div className="mt-8">
-          <FeedList />
+          <AuthGate>
+            <FeedList />
+          </AuthGate>
         </div>
       </div>
     </QueryProvider>

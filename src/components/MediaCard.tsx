@@ -1,5 +1,3 @@
-import type { MediaType } from "../lib/favorites";
-import FavoriteButton from "./FavoriteButton";
 import { useGroupImage } from "./ImageGroup";
 
 export default function MediaCard({
@@ -8,17 +6,12 @@ export default function MediaCard({
   subtitle,
   poster,
   rating,
-  favoriteId,
-  mediaType = "movie",
 }: {
   href: string;
   title: string;
   subtitle?: string | null;
   poster: string | null;
   rating?: number | null;
-  /** TMDB id — pass to show the favorite toggle. */
-  favoriteId?: number;
-  mediaType?: MediaType;
 }) {
   const { ready, onSettled } = useGroupImage(Boolean(poster));
 
@@ -79,21 +72,6 @@ export default function MediaCard({
           </div>
         </div>
       </a>
-
-      {favoriteId !== undefined && (
-        <FavoriteButton
-          item={{
-            id: favoriteId,
-            mediaType,
-            title,
-            poster,
-            subtitle,
-            rating,
-            href,
-          }}
-          className="absolute top-2 left-2 z-10 duration-300 group-hover:-translate-y-1.5"
-        />
-      )}
     </li>
   );
 }

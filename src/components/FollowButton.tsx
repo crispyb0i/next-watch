@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { authClient, getJWTToken } from "../lib/auth/client";
 import { notify } from "../lib/notifications";
+import { requireAuth } from "../lib/auth/gate";
 
 /**
  * Follow state is fetched after mount, not server-rendered: page requests carry
@@ -32,10 +33,13 @@ export default function FollowButton({ userId }: { userId: string }) {
     };
   }, [userId, signedIn]);
 
-  // Render nothing until state is known, so the label never flips under the user.
-  if (isPending || !signedIn || following === null) return null;
+  // Render nothing until state is known, so the label never flips under the
+  // user. Signed out is the exception: show Follow, click routes to sign-in.
+  if (isPending || (signedIn && following === null)) return null;
+  if (session?.user.id === userId) return null;
 
   async function toggle() {
+    if (!(await requireAuth())) return;
     const next = !following;
 
     setFollowing(next); // optimistic
@@ -66,7 +70,7 @@ export default function FollowButton({ userId }: { userId: string }) {
       type="button"
       onClick={toggle}
       disabled={busy}
-      aria-pressed={following}
+      aria-pressed={following ?? false}
       className={`focus-visible:outline-accent shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
         following
           ? "border-border/60 text-text-muted hover:text-text-primary border"
