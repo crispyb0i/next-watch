@@ -4,9 +4,60 @@ import {
   getTvShowDetails,
   posterUrl,
   backdropUrl,
+  type Season,
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
-import MediaDetail, { useIdSearchParam } from "./MediaDetail";
+import MediaDetail from "./MediaDetail";
+import Trailer from "./Trailer";
+import { DetailSkeleton } from "./Skeleton";
+
+function SeasonStrip({ tvId, seasons }: { tvId: number; seasons: Season[] }) {
+  if (seasons.length === 0) return null;
+
+  return (
+    <div className="mt-14">
+      <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
+        Seasons
+      </h2>
+      <ul className="mt-6 grid grid-cols-3 gap-5 sm:grid-cols-4 md:grid-cols-6">
+        {seasons.map((season) => {
+          const poster = posterUrl(season.poster_path);
+          return (
+            <li key={season.id}>
+              <a
+                href={`/tv/season?id=${tvId}&season=${season.season_number}`}
+                className="group block"
+              >
+                <div className="bg-surface-muted border-border/60 group-hover:border-accent overflow-hidden rounded-xl border transition">
+                  {poster ? (
+                    <img
+                      src={poster}
+                      alt={season.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="aspect-[2/3] w-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-text-muted grid aspect-[2/3] w-full place-items-center text-xs">
+                      No image
+                    </div>
+                  )}
+                </div>
+                <p className="text-text-primary group-hover:text-accent mt-2 line-clamp-1 text-sm font-semibold transition">
+                  {season.name}
+                </p>
+                <p className="text-text-muted text-xs">
+                  {season.episode_count} ep
+                  {season.episode_count === 1 ? "" : "s"}
+                </p>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 function TvDetailInner({ tvId }: { tvId: number }) {
   const detailsQuery = useQuery({
@@ -26,9 +77,7 @@ function TvDetailInner({ tvId }: { tvId: number }) {
     );
   }
 
-  if (!detailsQuery.data) {
-    return <p className="text-text-muted text-center text-sm">Loading…</p>;
-  }
+  if (!detailsQuery.data) return <DetailSkeleton />;
 
   const show = detailsQuery.data;
   const meta = [
@@ -40,6 +89,7 @@ function TvDetailInner({ tvId }: { tvId: number }) {
   return (
     <MediaDetail
       backdrop={backdropUrl(show.backdrop_path)}
+      backdropLarge={backdropUrl(show.backdrop_path, "original")}
       poster={posterUrl(show.poster_path, "w500")}
       title={show.name}
       tagline={show.tagline}
@@ -48,13 +98,17 @@ function TvDetailInner({ tvId }: { tvId: number }) {
       voteAverage={show.vote_average}
       overview={show.overview}
       cast={creditsQuery.data?.cast ?? []}
+      before={
+        <>
+          <Trailer videos={show.videos?.results} />
+          <SeasonStrip tvId={tvId} seasons={show.seasons ?? []} />
+        </>
+      }
     />
   );
 }
 
-export default function TvDetail() {
-  const tvId = useIdSearchParam();
-
+export default function TvDetail({ tvId }: { tvId: number | null }) {
   return (
     <QueryProvider>
       {tvId ? (

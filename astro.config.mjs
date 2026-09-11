@@ -10,6 +10,9 @@ import vercel from "@astrojs/vercel";
 export default defineConfig({
   integrations: [react()],
 
+  // Hover-prefetch every internal link so clicks feel instant.
+  prefetch: { prefetchAll: true, defaultStrategy: "hover" },
+
   vite: {
     plugins: [tailwindcss()],
   },

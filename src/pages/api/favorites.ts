@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
-import { favorites, users } from "../../db/schema";
-import { verifySession } from "../../lib/auth/server";
+import { favorites } from "../../db/schema";
+import { sessionUserId, syncUser } from "../../lib/auth/server";
 
 export const prerender = false;
 
@@ -12,31 +12,7 @@ const json = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" },
   });
 
-/** Resolve the caller's user id from the bearer token, or null. */
-async function userId(request: Request) {
-  const payload = await verifySession(request);
-  return typeof payload?.sub === "string" ? payload.sub : null;
-}
-
-/**
- * Mirror the token's profile claims into `users` so profile pages have a name to
- * show. Called on write only — reads don't need it.
- */
-async function syncUser(request: Request, id: string) {
-  const payload = await verifySession(request);
-  const email = typeof payload?.email === "string" ? payload.email : null;
-  if (!email) return;
-
-  const profile = {
-    name: typeof payload?.name === "string" ? payload.name : null,
-    image: typeof payload?.picture === "string" ? payload.picture : null,
-  };
-
-  await db
-    .insert(users)
-    .values({ id, email, ...profile })
-    .onConflictDoUpdate({ target: users.id, set: profile });
-}
+const userId = sessionUserId;
 
 export const GET: APIRoute = async ({ request }) => {
   const id = await userId(request);
@@ -49,6 +25,7 @@ export const GET: APIRoute = async ({ request }) => {
       poster: favorites.poster,
       subtitle: favorites.subtitle,
       rating: favorites.rating,
+      href: favorites.href,
     })
     .from(favorites)
     .where(eq(favorites.userId, id))
@@ -84,6 +61,11 @@ export const POST: APIRoute = async ({ request }) => {
       poster: typeof item.poster === "string" ? item.poster : null,
       subtitle: typeof item.subtitle === "string" ? item.subtitle : null,
       rating: typeof item.rating === "number" ? item.rating : null,
+      // Same-origin paths only: this string is rendered as an <a href>.
+      href:
+        typeof item.href === "string" && item.href.startsWith("/")
+          ? item.href.slice(0, 300)
+          : null,
     })
     .onConflictDoNothing();
 

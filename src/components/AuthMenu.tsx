@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { authClient } from "../lib/auth/client";
+import { authClient, syncCurrentProfile } from "../lib/auth/client";
 
 function initials(name?: string | null, email?: string | null) {
   const source = name?.trim() || email?.trim() || "";
@@ -13,6 +13,10 @@ export default function AuthMenu() {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (session) void syncCurrentProfile(session.user);
+  }, [session?.user.image, session?.user.name]);
 
   useEffect(() => {
     if (!open) return;

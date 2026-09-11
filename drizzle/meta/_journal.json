@@ -22,6 +22,34 @@
       "when": 1789070654210,
       "tag": "0002_luxuriant_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789073695340,
+      "tag": "0003_hard_dark_phoenix",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789075585658,
+      "tag": "0004_cuddly_skaar",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789082693328,
+      "tag": "0005_confused_supernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789089051261,
+      "tag": "0006_nifty_tigra",
+      "breakpoints": true
     }
   ]
 }

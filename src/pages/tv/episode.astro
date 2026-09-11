@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+import Layout from "../../layouts/Layout.astro";
+import EpisodeDetail from "../../components/EpisodeDetail.tsx";
+import { parseId, parseSeasonNumber } from "../../components/MediaDetail";
+import "../../styles/global.css";
+
+const params = Astro.url.searchParams;
+const tvId = parseId(params.get("id"));
+const seasonNumber = parseSeasonNumber(params.get("season"));
+const episodeNumber = parseId(params.get("episode"));
+---
+
+<Layout>
+  <EpisodeDetail
+    tvId={tvId}
+    seasonNumber={seasonNumber}
+    episodeNumber={episodeNumber}
+    client:load
+  />
+</Layout>

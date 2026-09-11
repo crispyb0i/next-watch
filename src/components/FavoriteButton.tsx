@@ -1,4 +1,5 @@
 import { toggleFavorite, useFavorites, type Favorite } from "../lib/favorites";
+import { notify } from "../lib/notifications";
 
 export default function FavoriteButton({
   item,
@@ -13,7 +14,17 @@ export default function FavoriteButton({
   return (
     <button
       type="button"
-      onClick={() => toggleFavorite(item)}
+      onClick={async () => {
+        const result = await toggleFavorite(item);
+        notify(
+          result.ok
+            ? result.removing
+              ? "Removed from favorites."
+              : "Added to favorites."
+            : "Couldn't update favorites.",
+          result.ok ? "success" : "error",
+        );
+      }}
       aria-pressed={active}
       aria-label={
         active ? `Unfavorite ${item.title}` : `Favorite ${item.title}`

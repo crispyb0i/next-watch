@@ -8,6 +8,9 @@ import {
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaCard from "./MediaCard";
+import ImageGroup from "./ImageGroup";
+import { PosterGridSkeleton } from "./Skeleton";
+import { FilterButton, FilterGroup } from "./FilterButton";
 
 const MEDIA_TYPES: { label: string; value: TrendingMediaType }[] = [
   { label: "All", value: "all" },
@@ -20,41 +23,20 @@ const TIME_WINDOWS: { label: string; value: TimeWindow }[] = [
   { label: "This week", value: "week" },
 ];
 
-function FilterButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-        active
-          ? "bg-accent text-accent-contrast shadow-sm"
-          : "text-text-muted hover:text-text-primary"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 function TrendingInner() {
   const [mediaType, setMediaType] = useState<TrendingMediaType>("all");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("day");
 
   const {
     data: items,
-    isFetching,
+    isPending,
     isError,
   } = useQuery({
     queryKey: ["trending", mediaType, timeWindow],
     queryFn: ({ signal }) => getTrending(mediaType, timeWindow, signal),
+    // Keep the old grid on screen while a filter change loads — no flash back
+    // to skeletons for data we already have.
+    placeholderData: (previous) => previous,
   });
 
   return (
@@ -64,7 +46,7 @@ function TrendingInner() {
           Trending
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="border-border/60 bg-surface-muted/50 flex gap-1 rounded-full border p-1 backdrop-blur">
+          <FilterGroup label="Media type">
             {MEDIA_TYPES.map(({ label, value }) => (
               <FilterButton
                 key={value}
@@ -74,8 +56,8 @@ function TrendingInner() {
                 {label}
               </FilterButton>
             ))}
-          </div>
-          <div className="border-border/60 bg-surface-muted/50 flex gap-1 rounded-full border p-1 backdrop-blur">
+          </FilterGroup>
+          <FilterGroup label="Time window">
             {TIME_WINDOWS.map(({ label, value }) => (
               <FilterButton
                 key={value}
@@ -85,7 +67,7 @@ function TrendingInner() {
                 {label}
               </FilterButton>
             ))}
-          </div>
+          </FilterGroup>
         </div>
       </div>
 
@@ -95,42 +77,36 @@ function TrendingInner() {
         </p>
       )}
 
-      {isFetching && !items && (
-        <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {Array.from({ length: 10 }, (_, index) => (
-            <li
-              key={index}
-              className="border-border/40 bg-surface-muted/50 aspect-[2/3] animate-pulse rounded-2xl border"
-            />
-          ))}
-        </ul>
-      )}
+      {isPending && <PosterGridSkeleton />}
 
+      {/* Un-keyed on purpose — see Discover: remounting re-hides cached posters. */}
       {items && items.length > 0 && (
-        <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {items.map((item) =>
-            item.media_type === "movie" ? (
-              <MediaCard
-                key={`movie-${item.id}`}
-                href={`/movie?id=${item.id}`}
-                title={item.title}
-                subtitle={item.release_date?.slice(0, 4)}
-                poster={posterUrl(item.poster_path)}
-                rating={item.vote_average}
-                favoriteId={item.id}
-              />
-            ) : (
-              <MediaCard
-                key={`tv-${item.id}`}
-                href={`/tv?id=${item.id}`}
-                title={item.name}
-                subtitle={item.first_air_date?.slice(0, 4)}
-                poster={posterUrl(item.poster_path)}
-                rating={item.vote_average}
-              />
-            ),
-          )}
-        </ul>
+        <ImageGroup>
+          <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {items.map((item) =>
+              item.media_type === "movie" ? (
+                <MediaCard
+                  key={`movie-${item.id}`}
+                  href={`/movie?id=${item.id}`}
+                  title={item.title}
+                  subtitle={item.release_date?.slice(0, 4)}
+                  poster={posterUrl(item.poster_path)}
+                  rating={item.vote_average}
+                  favoriteId={item.id}
+                />
+              ) : (
+                <MediaCard
+                  key={`tv-${item.id}`}
+                  href={`/tv?id=${item.id}`}
+                  title={item.name}
+                  subtitle={item.first_air_date?.slice(0, 4)}
+                  poster={posterUrl(item.poster_path)}
+                  rating={item.vote_average}
+                />
+              ),
+            )}
+          </ul>
+        </ImageGroup>
       )}
     </div>
   );

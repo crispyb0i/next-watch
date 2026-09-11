@@ -18,3 +18,20 @@ export const authClient = neonAuth.adapter;
 
 /** Signed JWT for `Authorization: Bearer`, or null when signed out. */
 export const getJWTToken = neonAuth.getJWTToken;
+
+/** Keep public profile data aligned with Neon Auth's current user. */
+export async function syncCurrentProfile(user: {
+  name?: string | null;
+  image?: string | null;
+}) {
+  const jwt = await getJWTToken();
+  if (!jwt) return;
+  await fetch("/api/profile", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${jwt}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ name: user.name, image: user.image }),
+  });
+}

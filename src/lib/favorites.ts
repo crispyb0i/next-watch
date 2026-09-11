@@ -7,6 +7,8 @@ export interface Favorite {
   poster: string | null;
   subtitle?: string | null;
   rating?: number | null;
+  /** Where the card links. Defaults to the movie page when absent. */
+  href?: string | null;
 }
 
 const KEY = "favorites";
@@ -15,6 +17,7 @@ const listeners = new Set<() => void>();
 
 let cache: Favorite[] = EMPTY;
 let loaded = false;
+let hydrated = false;
 
 function emit() {
   for (const listener of listeners) listener();
@@ -32,7 +35,12 @@ function readLocal(): Favorite[] {
     return Array.isArray(parsed)
       ? parsed.filter(
           (item): item is Favorite =>
-            typeof item?.id === "number" && typeof item?.title === "string",
+            typeof item?.id === "number" &&
+            typeof item?.title === "string" &&
+            // Only same-origin paths — localStorage is user-writable, so a
+            // stored `javascript:` or cross-origin href must never reach an <a>.
+            (item.href == null ||
+              (typeof item.href === "string" && item.href.startsWith("/"))),
         )
       : EMPTY;
   } catch {
@@ -48,6 +56,7 @@ async function load() {
   const jwt = await token();
   if (!jwt) {
     cache = readLocal();
+    hydrated = true;
     emit();
     return;
   }
@@ -60,8 +69,13 @@ async function load() {
   const response = await fetch("/api/favorites", {
     headers: { authorization: `Bearer ${jwt}` },
   });
-  if (!response.ok) return;
+  if (!response.ok) {
+    hydrated = true;
+    emit();
+    return;
+  }
   cache = await response.json();
+  hydrated = true;
   emit();
 }
 
@@ -97,7 +111,7 @@ export async function toggleFavorite(item: Favorite) {
   const jwt = await token();
   if (!jwt) {
     writeLocal(cache);
-    return;
+    return { ok: true, removing };
   }
 
   const response = removing
@@ -110,7 +124,10 @@ export async function toggleFavorite(item: Favorite) {
   if (!response.ok) {
     cache = previous;
     emit();
+    return { ok: false, removing };
   }
+
+  return { ok: true, removing };
 }
 
 export function subscribe(listener: () => void) {
@@ -126,8 +143,19 @@ export function useFavorites(): Favorite[] {
   return useSyncExternalStore(subscribe, getFavorites, () => EMPTY);
 }
 
+/** False until the first read (local or server) resolves — lets the UI show
+ *  skeletons instead of a false "no favorites" state. */
+export function useFavoritesLoaded(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => hydrated,
+    () => false,
+  );
+}
+
 /** Test seam. */
 export function _resetForTest(next: Favorite[] = EMPTY) {
   cache = next;
   loaded = true;
+  hydrated = true;
 }

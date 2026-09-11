@@ -1,0 +1,1 @@
+ALTER TABLE "favorites" ADD COLUMN "href" text;

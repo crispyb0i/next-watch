@@ -23,6 +23,16 @@ export interface Genre {
   name: string;
 }
 
+export interface Video {
+  id: string;
+  key: string;
+  name: string;
+  site: string;
+  type: string;
+  official: boolean;
+  published_at: string;
+}
+
 export interface MovieDetails extends Movie {
   backdrop_path: string | null;
   genres: Genre[];
@@ -30,6 +40,40 @@ export interface MovieDetails extends Movie {
   tagline: string;
   vote_average: number;
   vote_count: number;
+  videos?: { results: Video[] };
+}
+
+export interface Season {
+  id: number;
+  /** 0 for specials. */
+  season_number: number;
+  name: string;
+  overview: string;
+  air_date: string | null;
+  episode_count: number;
+  poster_path: string | null;
+}
+
+export interface Episode {
+  id: number;
+  episode_number: number;
+  season_number: number;
+  name: string;
+  overview: string;
+  air_date: string | null;
+  runtime: number | null;
+  still_path: string | null;
+  vote_average: number;
+}
+
+export interface SeasonDetails extends Season {
+  episodes: Episode[];
+}
+
+export interface EpisodeDetails extends Episode {
+  vote_count: number;
+  guest_stars: CastMember[];
+  crew: { id: number; credit_id: string; name: string; job: string }[];
 }
 
 export interface TvShowDetails extends TvShow {
@@ -38,9 +82,11 @@ export interface TvShowDetails extends TvShow {
   episode_run_time: number[];
   number_of_seasons: number;
   number_of_episodes: number;
+  seasons: Season[];
   tagline: string;
   vote_average: number;
   vote_count: number;
+  videos?: { results: Video[] };
 }
 
 export interface CastMember {
@@ -96,25 +142,27 @@ async function tmdbFetch<T>(
   return res.json() as Promise<T>;
 }
 
-export async function searchMovies(
-  query: string,
-  signal?: AbortSignal,
-): Promise<Movie[]> {
-  const data = await tmdbFetch<TmdbListResponse<Movie>>(
-    "/search/movie",
-    { query },
-    signal,
-  );
-  return data.results;
-}
+/** `/search/multi` rows — discriminated by `media_type`. */
+export type MultiResult =
+  | (Movie & { media_type: "movie" })
+  | (TvShow & { media_type: "tv" })
+  | {
+      media_type: "person";
+      id: number;
+      name: string;
+      profile_path: string | null;
+      known_for_department: string | null;
+    };
 
-export async function searchTvShows(
+export async function searchMulti(
   query: string,
   signal?: AbortSignal,
-): Promise<TvShow[]> {
-  const data = await tmdbFetch<TmdbListResponse<TvShow>>(
-    "/search/tv",
+): Promise<MultiResult[]> {
+  const data = await tmdbFetch<TmdbListResponse<MultiResult>>(
+    "/search/multi",
+
     { query },
+
     signal,
   );
   return data.results;
@@ -137,14 +185,53 @@ export async function getMovieDetails(
   movieId: number,
   signal?: AbortSignal,
 ): Promise<MovieDetails> {
-  return tmdbFetch<MovieDetails>(`/movie/${movieId}`, {}, signal);
+  return tmdbFetch<MovieDetails>(
+    `/movie/${movieId}`,
+    { append_to_response: "videos" },
+    signal,
+  );
 }
 
 export async function getTvShowDetails(
   tvId: number,
   signal?: AbortSignal,
 ): Promise<TvShowDetails> {
-  return tmdbFetch<TvShowDetails>(`/tv/${tvId}`, {}, signal);
+  return tmdbFetch<TvShowDetails>(
+    `/tv/${tvId}`,
+    { append_to_response: "videos" },
+    signal,
+  );
+}
+
+/** TMDB list endpoints that return `Movie` rows. */
+export type MovieListName =
+  "upcoming" | "now_playing" | "top_rated" | "popular";
+/** TMDB list endpoints that return `TvShow` rows. */
+export type TvListName =
+  "airing_today" | "on_the_air" | "top_rated" | "popular";
+
+export async function getMovieList(
+  name: MovieListName,
+  signal?: AbortSignal,
+): Promise<Movie[]> {
+  const data = await tmdbFetch<TmdbListResponse<Movie>>(
+    `/movie/${name}`,
+    {},
+    signal,
+  );
+  return data.results;
+}
+
+export async function getTvList(
+  name: TvListName,
+  signal?: AbortSignal,
+): Promise<TvShow[]> {
+  const data = await tmdbFetch<TmdbListResponse<TvShow>>(
+    `/tv/${name}`,
+    {},
+    signal,
+  );
+  return data.results;
 }
 
 export async function getMovieCredits(
@@ -152,6 +239,31 @@ export async function getMovieCredits(
   signal?: AbortSignal,
 ): Promise<Credits> {
   return tmdbFetch<Credits>(`/movie/${movieId}/credits`, {}, signal);
+}
+
+export async function getSeasonDetails(
+  tvId: number,
+  seasonNumber: number,
+  signal?: AbortSignal,
+): Promise<SeasonDetails> {
+  return tmdbFetch<SeasonDetails>(
+    `/tv/${tvId}/season/${seasonNumber}`,
+    {},
+    signal,
+  );
+}
+
+export async function getEpisodeDetails(
+  tvId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+  signal?: AbortSignal,
+): Promise<EpisodeDetails> {
+  return tmdbFetch<EpisodeDetails>(
+    `/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`,
+    {},
+    signal,
+  );
 }
 
 export async function getTvShowCredits(
@@ -190,7 +302,7 @@ export function posterUrl(path: string | null, size: "w200" | "w500" = "w200") {
 
 export function backdropUrl(
   path: string | null,
-  size: "w780" | "w1280" = "w780",
+  size: "w780" | "w1280" | "original" = "w1280",
 ) {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }
@@ -198,3 +310,32 @@ export function backdropUrl(
 export function profileUrl(path: string | null, size: "w185" = "w185") {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }
+
+export function stillUrl(path: string | null, size: "w300" | "w780" = "w300") {
+  return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
+}
+
+/** Best embeddable trailer: official beats unofficial, trailers beat teasers,
+ *  newer beats older. YouTube only — that's all we can embed. */
+export function pickTrailer(videos: Video[] | undefined): Video | null {
+  const score = (video: Video) =>
+    (video.official ? 2 : 0) + (video.type === "Trailer" ? 1 : 0);
+
+  return (
+    (videos ?? [])
+      .filter(
+        (video) =>
+          video.site === "YouTube" &&
+          (video.type === "Trailer" || video.type === "Teaser"),
+      )
+      .sort(
+        (a, b) =>
+          score(b) - score(a) ||
+          (b.published_at ?? "").localeCompare(a.published_at ?? ""),
+      )[0] ?? null
+  );
+}
+
+/** `S02E07`, the format everyone already reads. */
+export const episodeCode = (season: number, episode: number) =>
+  `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;

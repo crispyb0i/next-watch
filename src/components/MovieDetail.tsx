@@ -6,8 +6,11 @@ import {
   backdropUrl,
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
-import MediaDetail, { useIdSearchParam } from "./MediaDetail";
+import MediaDetail from "./MediaDetail";
 import FavoriteButton from "./FavoriteButton";
+import WatchLogButton from "./WatchLogButton";
+import { DetailSkeleton } from "./Skeleton";
+import Trailer from "./Trailer";
 
 function MovieDetailInner({ movieId }: { movieId: number }) {
   const detailsQuery = useQuery({
@@ -27,9 +30,7 @@ function MovieDetailInner({ movieId }: { movieId: number }) {
     );
   }
 
-  if (!detailsQuery.data) {
-    return <p className="text-text-muted text-center text-sm">Loading…</p>;
-  }
+  if (!detailsQuery.data) return <DetailSkeleton />;
 
   const movie = detailsQuery.data;
   const meta = [
@@ -40,6 +41,7 @@ function MovieDetailInner({ movieId }: { movieId: number }) {
   return (
     <MediaDetail
       backdrop={backdropUrl(movie.backdrop_path)}
+      backdropLarge={backdropUrl(movie.backdrop_path, "original")}
       poster={posterUrl(movie.poster_path, "w500")}
       title={movie.title}
       tagline={movie.tagline}
@@ -48,25 +50,35 @@ function MovieDetailInner({ movieId }: { movieId: number }) {
       voteAverage={movie.vote_average}
       overview={movie.overview}
       cast={creditsQuery.data?.cast ?? []}
+      before={<Trailer videos={movie.videos?.results} />}
       actions={
-        <FavoriteButton
-          item={{
-            id: movie.id,
-            title: movie.title,
-            poster: posterUrl(movie.poster_path),
-            subtitle: movie.release_date?.slice(0, 4),
-            rating: movie.vote_average,
-          }}
-          className="mt-1 shrink-0"
-        />
+        <>
+          <FavoriteButton
+            item={{
+              id: movie.id,
+              title: movie.title,
+              poster: posterUrl(movie.poster_path),
+              subtitle: movie.release_date?.slice(0, 4),
+              rating: movie.vote_average,
+            }}
+            className="mt-1 shrink-0"
+          />
+          <WatchLogButton
+            item={{
+              tmdbId: movie.id,
+              title: movie.title,
+              poster: posterUrl(movie.poster_path),
+              subtitle: movie.release_date?.slice(0, 4),
+            }}
+            className="mt-0.5"
+          />
+        </>
       }
     />
   );
 }
 
-export default function MovieDetail() {
-  const movieId = useIdSearchParam();
-
+export default function MovieDetail({ movieId }: { movieId: number | null }) {
   return (
     <QueryProvider>
       {movieId ? (

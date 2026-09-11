@@ -1,0 +1,1 @@
+ALTER TABLE "watch_log" ALTER COLUMN "rating" SET DATA TYPE real;
