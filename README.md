@@ -88,9 +88,9 @@ while the development server remains active. Start development with
   display in streaming preferences. Movie-night membership is separate consent
   to share with that group. Favorites and watchlists are displayed separately.
 - **TV progress**: episode logs drive season counts and next-unwatched links;
-  whole-season/show logs count toward progress. Unseen episode descriptions and
-  stills are hidden until explicitly revealed. This is a presentation feature,
-  not access control on public TMDB content.
+  whole-season/show logs count toward progress. Episode stills are visible by
+  default; unseen episode descriptions stay hidden until explicitly revealed.
+  This is a presentation feature, not access control on public TMDB content.
 - **Import/export** (`/library`, linked from Settings): export the full library as
   JSON. Import version-1 JSON (up to 5,000 entries, 5 MB) or CSV (up to 500 rows).
   The CSV template includes TMDB ID, Title, Media Type, Watched Date, Rating,

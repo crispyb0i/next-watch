@@ -120,7 +120,7 @@ function EpisodeDetailInner({
   const episode = episodeQuery.data;
   const show = showQuery.data;
   const code = episodeCode(episode.season_number, episode.episode_number);
-  const still = showSpoilers ? stillUrl(episode.still_path, "w780") : null;
+  const still = stillUrl(episode.still_path, "w780");
   const aired =
     Boolean(episode.air_date) &&
     episode.air_date! <= new Date().toISOString().slice(0, 10);

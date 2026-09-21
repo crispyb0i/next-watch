@@ -1,6 +1,7 @@
 ---
 import AlertIndicator from "./AlertIndicator";
 import AuthMenu from "./AuthMenu.tsx";
+import NavbarSearch from "./SearchBox";
 
 const links = [
   // Movie nights is paused; restore this entry when the feature returns.
@@ -121,39 +122,9 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
       </svg>
     </a>
 
-    <!-- Plain GET form: /search reads `q` and renders results. -->
-    <form
-      role="search"
-      action="/search"
-      method="get"
-      class="group relative hidden flex-1 sm:block sm:min-w-40 sm:max-w-xs xl:ml-auto xl:max-w-56"
-    >
-      <span class="text-text-muted group-focus-within:text-accent pointer-events-none absolute inset-y-0 left-3 flex items-center transition">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-          class="h-4 w-4"
-        >
-          <circle cx="11" cy="11" r="8"></circle>
-          <path d="m21 21-4.3-4.3"></path>
-        </svg>
-      </span>
-      <input
-        type="search"
-        name="q"
-        enterkeyhint="search"
-        autocapitalize="none"
-        autocorrect="off"
-        placeholder="Search…"
-        aria-label="Search"
-        class="border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted focus:border-accent focus:ring-accent/25 h-10 w-full rounded-full border pr-3 pl-9 text-sm transition outline-none focus:ring-4 [&::-webkit-search-cancel-button]:hidden"
-      />
-    </form>
+    <div class="hidden flex-1 sm:block sm:min-w-40 sm:max-w-xs xl:ml-auto xl:max-w-56">
+      <NavbarSearch client:load />
+    </div>
 
     <div class="flex shrink-0 items-center gap-2">
       <AlertIndicator client:load transition:persist="streaming-alerts" />

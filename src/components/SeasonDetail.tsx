@@ -34,7 +34,7 @@ function EpisodeRow({
 }) {
   const [revealed, setRevealed] = useState(false);
   const showSpoilers = watched || revealed;
-  const still = showSpoilers ? stillUrl(episode.still_path) : null;
+  const still = stillUrl(episode.still_path);
   const code = episodeCode(episode.season_number, episode.episode_number);
   const href = `/tv/episode?id=${showId}&season=${episode.season_number}&episode=${episode.episode_number}`;
 
