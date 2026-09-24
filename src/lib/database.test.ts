@@ -281,6 +281,25 @@ try {
     await call(watched.GET, undefined, "?limit=1&offset=0")
   ).json();
   assert.equal(data.length, 1);
+  assert.equal(
+    (await (await call(watched.GET, undefined, "?month=2024-01")).json())
+      .length,
+    1,
+  );
+  assert.deepEqual(
+    await (await call(watched.GET, undefined, "?month=2024-02")).json(),
+    [],
+  );
+  assert.equal(
+    (await call(watched.GET, undefined, "?month=2024-13")).status,
+    400,
+  );
+  viewer = null;
+  assert.equal(
+    (await call(watched.GET, undefined, "?month=2024-01")).status,
+    401,
+  );
+  viewer = "alice";
   assert.equal((await call(watched.GET, undefined, "?limit=1.5")).status, 400);
   await assert.rejects(() =>
     db

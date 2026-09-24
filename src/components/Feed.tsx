@@ -116,9 +116,6 @@ function FeedList() {
   const entries = data?.pages.flat() ?? [];
   return (
     <div className="w-full">
-      <h1 className="text-text-primary text-xl font-extrabold">
-        Friends’ activity
-      </h1>
       {isPending && <PosterGridSkeleton />}
       {error && (
         <p role="alert" className="text-danger mt-4">

@@ -10,11 +10,14 @@ import AuthGate from "./AuthGate";
 
 async function fetchWatched(
   offset: number,
+  month: string,
   signal?: AbortSignal,
 ): Promise<WatchEntry[]> {
   const jwt = await getJWTToken();
   if (!jwt) throw new Error("Sign in to continue.");
-  const response = await fetch(`/api/watched?limit=30&offset=${offset}`, {
+  const params = new URLSearchParams({ limit: "30", offset: String(offset) });
+  if (month) params.set("month", month);
+  const response = await fetch(`/api/watched?${params}`, {
     signal,
     headers: { authorization: `Bearer ${jwt}` },
   });
@@ -209,6 +212,16 @@ function Entry({ entry }: { entry: WatchEntry }) {
 
 function WatchedInner() {
   const { data: session } = authClient.useSession();
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const year = Number(selectedMonth.slice(0, 4));
+  const month = Number(selectedMonth.slice(5));
+  const monthName = new Date(year, month - 1, 1).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
   const {
     data,
     isPending,
@@ -218,10 +231,11 @@ function WatchedInner() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ["watched", session?.user.id],
+    queryKey: ["watched", session?.user.id, selectedMonth],
     enabled: Boolean(session),
     initialPageParam: 0,
-    queryFn: ({ pageParam, signal }) => fetchWatched(pageParam, signal),
+    queryFn: ({ pageParam, signal }) =>
+      fetchWatched(pageParam, selectedMonth, signal),
     getNextPageParam: (last, pages) =>
       last.length === 30 ? pages.length * 30 : undefined,
   });
@@ -230,37 +244,83 @@ function WatchedInner() {
   return (
     <div className="mx-auto w-full max-w-[800px]">
       <header>
-        <p className="text-text-muted font-mono text-xs font-semibold tracking-[0.2em] uppercase">
-          My log
-        </p>
-        <h1 className="text-text-primary mt-2 text-3xl font-extrabold tracking-tight">
-          Watched
-        </h1>
-        {!isPending && entries.length > 0 && (
-          <p className="text-text-muted mt-2 text-sm">
-            {entries.length} {entries.length === 1 ? "watch" : "watches"}
-            {hasNextPage ? " loaded" : ""} · Newest first
-          </p>
-        )}
-        {months.length > 1 && (
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div>
+            <p className="text-text-muted font-mono text-xs font-semibold tracking-[0.2em] uppercase">
+              My log
+            </p>
+            <h1 className="text-text-primary mt-2 text-3xl font-extrabold tracking-tight">
+              Watched
+            </h1>
+            {!isPending && entries.length > 0 && (
+              <p className="text-text-muted mt-2 text-sm">
+                {entries.length} {entries.length === 1 ? "watch" : "watches"}
+                {hasNextPage ? " loaded" : ""} in {monthName}
+              </p>
+            )}
+          </div>
           <nav
-            aria-label="Jump to a month"
-            className="mt-5 flex flex-wrap gap-2"
+            aria-label="Choose month and year"
+            className="w-full sm:w-[400px]"
           >
-            {months.map(({ month }) => (
-              <a
-                key={month}
-                href={`#log-${month}`}
-                className="border-border/60 text-text-secondary hover:border-accent hover:text-accent rounded-full border px-3 py-1.5 text-xs"
+            <div className="flex items-center justify-center gap-8">
+              <button
+                type="button"
+                aria-label="Previous year"
+                disabled={year <= 1000}
+                onClick={() =>
+                  setSelectedMonth(`${year - 1}-${selectedMonth.slice(5)}`)
+                }
+                className="bg-surface-muted/40 text-text-secondary hover:text-text-primary focus-visible:outline-accent rounded-md px-2 py-1 text-sm disabled:opacity-40"
               >
-                {new Date(`${month}-01T00:00:00`).toLocaleDateString(
+                ‹
+              </button>
+              <span className="text-text-primary font-mono text-xs font-semibold tracking-widest">
+                {year}
+              </span>
+              <button
+                type="button"
+                aria-label="Next year"
+                disabled={year >= 9999}
+                onClick={() =>
+                  setSelectedMonth(`${year + 1}-${selectedMonth.slice(5)}`)
+                }
+                className="bg-surface-muted/40 text-text-secondary hover:text-text-primary focus-visible:outline-accent rounded-md px-2 py-1 text-sm disabled:opacity-40"
+              >
+                ›
+              </button>
+            </div>
+            <div className="mt-2 flex flex-nowrap">
+              {Array.from({ length: 12 }, (_, index) => {
+                const name = new Date(year, index, 1).toLocaleDateString(
                   undefined,
-                  { month: "short", year: "numeric" },
-                )}
-              </a>
-            ))}
+                  { month: "short" },
+                );
+                const active = month === index + 1;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    aria-label={`${new Date(year, index, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" })}`}
+                    aria-pressed={active}
+                    onClick={() =>
+                      setSelectedMonth(
+                        `${year}-${String(index + 1).padStart(2, "0")}`,
+                      )
+                    }
+                    className={`focus-visible:outline-accent flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-md text-[10px] font-semibold uppercase focus-visible:outline-2 ${active ? "text-text-primary" : "text-text-muted hover:text-text-primary"}`}
+                  >
+                    <span>{name}</span>
+                    <span
+                      aria-hidden="true"
+                      className={`rounded-full ${active ? "bg-accent h-3 w-3 shadow-[0_0_16px_var(--color-accent)]" : "bg-text-muted/40 h-1.5 w-1.5"}`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
           </nav>
-        )}
+        </div>
       </header>
       {isPending && (
         <div role="status" className="mt-10 space-y-6">
@@ -287,7 +347,7 @@ function WatchedInner() {
       )}
       {!isPending && !error && !entries.length && (
         <p className="text-text-muted mt-6">
-          Your watch log is empty. Log a movie or an episode to get started.
+          No watches in {monthName}. Choose another month or year.
         </p>
       )}
       <div className="mt-10 space-y-10">
@@ -350,7 +410,7 @@ function WatchedInner() {
       {!isPending && !error && !hasNextPage && entries.length > 0 && (
         <p className="border-border/40 text-text-muted mt-8 border-t pt-5 text-center text-sm">
           You’re all caught up · {entries.length}{" "}
-          {entries.length === 1 ? "watch" : "watches"}
+          {entries.length === 1 ? "watch" : "watches"} this month
         </p>
       )}
     </div>
