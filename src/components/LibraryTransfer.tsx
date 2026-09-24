@@ -70,11 +70,7 @@ function TransferInner() {
             title,
             mediaType,
             watchedOn: row["Watched Date"] || row.Date,
-            rating: row.Rating ? Number(row.Rating) : null,
-            review: row.Review || null,
-            rewatch: ["true", "yes", "1"].includes(
-              row.Rewatch?.trim().toLowerCase() ?? "",
-            ),
+            notes: row.Notes || null,
           });
         }
         setPreview(parseLibrary({ version: 1, favorites: [], watched }));
@@ -160,9 +156,9 @@ function TransferInner() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Your library, your data</h1>
       <p className="text-text-muted">
-        Export favorites, watchlists, ratings, and watch history as JSON. Import
-        a Next Watch export or CSV history, including Letterboxd diary columns.
-        CSV title matches are shown for review before saving.
+        Export favorites, watchlists, and watch history as JSON. Import a Next
+        Watch export or CSV history. CSV title matches are shown for review
+        before saving.
       </p>
       {error && (
         <p role="alert" className="text-danger">
@@ -182,7 +178,7 @@ function TransferInner() {
         onClick={() =>
           download(
             "watch-history-template.csv",
-            "TMDB ID,Title,Media Type,Watched Date,Rating,Review,Rewatch\n603,The Matrix,movie,2024-01-01,4.5,,false\n",
+            "TMDB ID,Title,Media Type,Watched Date,Notes\n603,The Matrix,movie,2024-01-01,Great effects\n",
             "text/csv",
           )
         }

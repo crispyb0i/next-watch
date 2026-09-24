@@ -108,13 +108,9 @@ export const watchLog = pgTable(
     title: text("title").notNull(),
     poster: text("poster"),
     subtitle: text("subtitle"),
-    /** 0.5-5 stars in half-star increments, null when not rated. */
-    rating: real("rating"),
-    review: text("review"),
+    notes: text("notes"),
     /** Date only — nobody logs the minute they watched something. */
     watchedOn: date("watched_on").notNull(),
-    rewatch: boolean("rewatch").notNull().default(false),
-    venue: text("venue"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -124,6 +120,42 @@ export const watchLog = pgTable(
       table.id,
     ),
     uniqueIndex("watch_log_import_idx").on(table.userId, table.importKey),
+  ],
+);
+
+/** Reviews are separate from watch logs: one per user per movie/show. */
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id").notNull(),
+    mediaType: text("media_type")
+      .$type<"movie" | "tv">()
+      .notNull()
+      .default("movie"),
+    title: text("title").notNull(),
+    poster: text("poster"),
+    subtitle: text("subtitle"),
+    /** 0.5-5 stars in half-star increments, null when not rated. */
+    rating: real("rating"),
+    review: text("review"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("reviews_user_media_idx").on(
+      table.userId,
+      table.tmdbId,
+      table.mediaType,
+    ),
+    index("reviews_user_updated_idx").on(
+      table.userId,
+      table.updatedAt,
+      table.id,
+    ),
   ],
 );
 

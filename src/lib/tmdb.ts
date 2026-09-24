@@ -410,7 +410,10 @@ export function profileUrl(path: string | null, size: "w185" = "w185") {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }
 
-export function stillUrl(path: string | null, size: "w300" | "w780" = "w300") {
+export function stillUrl(
+  path: string | null,
+  size: "w300" | "w780" | "original" = "w300",
+) {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }
 

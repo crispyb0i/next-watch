@@ -99,7 +99,7 @@ export default function AuthMenu() {
           <a
             href={`/u/${id}`}
             role="menuitem"
-            className="border-border/60 hover:bg-surface-muted mb-1.5 block border-b px-3.5 pb-2.5 transition"
+            className="border-border/60 hover:bg-surface-muted mb-1.5 block border-b px-3.5 pt-2 pb-2.5 transition"
           >
             <p className="text-text-primary truncate text-sm font-semibold">
               {name || "Account"}

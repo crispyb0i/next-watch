@@ -1,5 +1,4 @@
 import type { TvShowDetails, SeasonDetails } from "../lib/tmdb";
-import { useState } from "react";
 import { useShowProgress } from "./ShowProgress";
 import { episodeWatched, seasonProgress } from "../lib/progress";
 import { useQuery } from "@tanstack/react-query";
@@ -32,8 +31,6 @@ function EpisodeRow({
   poster: string | null;
   watched: boolean;
 }) {
-  const [revealed, setRevealed] = useState(false);
-  const showSpoilers = watched || revealed;
   const still = stillUrl(episode.still_path);
   const code = episodeCode(episode.season_number, episode.episode_number);
   const href = `/tv/episode?id=${showId}&season=${episode.season_number}&episode=${episode.episode_number}`;
@@ -61,16 +58,7 @@ function EpisodeRow({
       </a>
 
       <div className="min-w-0 flex-1">
-        {watched ? (
-          <p className="text-accent text-sm">Watched</p>
-        ) : (
-          <button
-            className="mb-2 text-sm underline"
-            onClick={() => setRevealed(!revealed)}
-          >
-            {revealed ? "Hide spoilers" : "Show episode spoilers"}
-          </button>
-        )}
+        {watched && <p className="text-accent text-sm">Watched</p>}
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-text-primary font-bold tracking-tight">
             <a href={href} className="hover:text-accent transition">
@@ -119,7 +107,7 @@ function EpisodeRow({
           )}
         </p>
 
-        {showSpoilers && episode.overview && (
+        {episode.overview && (
           <p className="text-text-muted mt-2 text-sm leading-relaxed">
             {episode.overview}
           </p>
@@ -202,13 +190,11 @@ function SeasonDetailInner({
               {season.episodes.length === 1 ? "" : "s"}
             </span>
           </p>
-          {progress.total > 0 &&
-            progress.watched === progress.total &&
-            season.overview && (
-              <p className="text-text-muted mt-4 leading-relaxed">
-                {season.overview}
-              </p>
-            )}
+          {season.overview && (
+            <p className="text-text-muted mt-4 leading-relaxed">
+              {season.overview}
+            </p>
+          )}
         </div>
       </div>
 

@@ -36,7 +36,6 @@ await db.insert(watchLog).values({
   tmdbId: 603,
   title: "The Matrix",
   watchedOn: "2024-01-01",
-  rating: 5,
 });
 
 // Self-follow is rejected before it reaches the check constraint.

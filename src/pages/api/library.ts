@@ -53,22 +53,15 @@ export const POST: APIRoute = async ({ request }) => {
           eq(watchLog.mediaType, entry.mediaType ?? "movie"),
           eq(watchLog.watchedOn, entry.watchedOn),
           eq(watchLog.title, entry.title),
-          eq(watchLog.rewatch, entry.rewatch ?? false),
           entry.season == null
             ? isNull(watchLog.season)
             : eq(watchLog.season, entry.season),
           entry.episode == null
             ? isNull(watchLog.episode)
             : eq(watchLog.episode, entry.episode),
-          entry.rating == null
-            ? isNull(watchLog.rating)
-            : eq(watchLog.rating, entry.rating),
-          entry.review == null
-            ? isNull(watchLog.review)
-            : eq(watchLog.review, entry.review),
-          entry.venue == null
-            ? isNull(watchLog.venue)
-            : eq(watchLog.venue, entry.venue),
+          entry.notes == null
+            ? isNull(watchLog.notes)
+            : eq(watchLog.notes, entry.notes),
         ),
       )
       .limit(1);

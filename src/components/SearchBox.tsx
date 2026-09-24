@@ -250,7 +250,9 @@ export function SearchBox({
         enterKeyHint="search"
         autoCapitalize="none"
         autoCorrect="off"
-        placeholder="Search movies, TV, people…"
+        placeholder={
+          compact ? "Search movies & TV" : "Search movies, TV, people…"
+        }
         aria-label="Search"
         autoFocus={!compact && !initialQuery}
         className={`border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted shadow-card focus:border-accent focus:ring-accent/25 w-full border backdrop-blur-xl transition outline-none focus:ring-4 [&::-webkit-search-cancel-button]:hidden ${compact ? "h-10 rounded-full pr-3 pl-11 text-sm" : "rounded-2xl py-3.5 pr-28 pl-11 text-base sm:py-4 sm:pr-32 sm:pl-13"}`}

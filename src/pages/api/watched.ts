@@ -26,11 +26,8 @@ const columns = {
   title: watchLog.title,
   poster: watchLog.poster,
   subtitle: watchLog.subtitle,
-  rating: watchLog.rating,
-  review: watchLog.review,
+  notes: watchLog.notes,
   watchedOn: watchLog.watchedOn,
-  rewatch: watchLog.rewatch,
-  venue: watchLog.venue,
 };
 
 /** Newest watch first, ties broken by insert order. */

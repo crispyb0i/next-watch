@@ -11,6 +11,7 @@ import QueryProvider from "./QueryProvider";
 import MediaDetail, { useRegion } from "./MediaDetail";
 import FavoriteButton from "./FavoriteButton";
 import WatchLogButton from "./WatchLogButton";
+import ReviewButton from "./ReviewButton";
 import { DetailSkeleton } from "./Skeleton";
 import Trailer from "./Trailer";
 import RelatedGrid from "./RelatedGrid";
@@ -90,6 +91,14 @@ function MovieDetailInner({
             />
           ))}
           <WatchLogButton
+            item={{
+              tmdbId: movie.id,
+              title: movie.title,
+              poster: posterUrl(movie.poster_path),
+              subtitle: movie.release_date?.slice(0, 4),
+            }}
+          />
+          <ReviewButton
             item={{
               tmdbId: movie.id,
               title: movie.title,

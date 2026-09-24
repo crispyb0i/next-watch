@@ -1,7 +1,4 @@
 import type { TvShowDetails, EpisodeDetails } from "../lib/tmdb";
-import { useState } from "react";
-import { useShowProgress } from "./ShowProgress";
-import { episodeWatched } from "../lib/progress";
 import { useQuery } from "@tanstack/react-query";
 import {
   episodeCode,
@@ -90,11 +87,6 @@ function EpisodeDetailInner({
   initialShow?: TvShowDetails;
   initialData?: EpisodeDetails;
 }) {
-  const progressQuery = useShowProgress(tvId);
-  const [revealed, setRevealed] = useState(false);
-  const showSpoilers =
-    revealed ||
-    episodeWatched(progressQuery.data ?? [], seasonNumber, episodeNumber);
   const showQuery = useQuery({
     initialData: initialShow,
     queryKey: ["tv", tvId],
@@ -120,7 +112,7 @@ function EpisodeDetailInner({
   const episode = episodeQuery.data;
   const show = showQuery.data;
   const code = episodeCode(episode.season_number, episode.episode_number);
-  const still = stillUrl(episode.still_path, "w780");
+  const still = stillUrl(episode.still_path, "original");
   const aired =
     Boolean(episode.air_date) &&
     episode.air_date! <= new Date().toISOString().slice(0, 10);
@@ -148,18 +140,6 @@ function EpisodeDetailInner({
         </a>
       </nav>
 
-      {!episodeWatched(
-        progressQuery.data ?? [],
-        seasonNumber,
-        episodeNumber,
-      ) && (
-        <button
-          className="mt-5 underline"
-          onClick={() => setRevealed(!revealed)}
-        >
-          {revealed ? "Hide spoilers" : "Show episode spoilers"}
-        </button>
-      )}
       {still && (
         <div className="border-border/50 relative mt-4 aspect-video overflow-hidden rounded-3xl border">
           <img src={still} alt="" className="h-full w-full object-cover" />
@@ -167,42 +147,45 @@ function EpisodeDetailInner({
         </div>
       )}
 
-      <div className="mt-8 flex items-start gap-4">
-        <div className="min-w-0">
-          <p className="text-text-muted font-mono text-sm">{code}</p>
-          <h1 className="text-text-primary mt-1 text-3xl font-black tracking-tighter text-balance sm:text-4xl">
+      <div className="mt-8">
+        <p className="text-text-muted font-mono text-sm">{code}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <h1 className="text-text-primary min-w-0 text-3xl font-black tracking-tighter text-balance sm:text-4xl">
             {episode.name}
           </h1>
-        </div>
-        {/* The episode's own TMDB id, so favoriting an episode never collides
+          <div className="flex shrink-0 items-center gap-3">
+            {/* The episode's own TMDB id, so favoriting an episode never collides
             with favoriting its show. */}
-        <FavoriteButton
-          item={{
-            id: episode.id,
-            title: `${show.name} ${code}`,
-            poster: stillUrl(episode.still_path) ?? posterUrl(show.poster_path),
-            subtitle: episode.name,
-            rating: episode.vote_average,
-            href: episodeHref(tvId, {
-              season: episode.season_number,
-              episode: episode.episode_number,
-            }),
-          }}
-          className="mt-1 shrink-0"
-        />
-        {aired && (
-          <WatchLogButton
-            item={{
-              tmdbId: tvId,
-              mediaType: "tv",
-              season: episode.season_number,
-              episode: episode.episode_number,
-              title: show.name,
-              poster: posterUrl(show.poster_path),
-              subtitle: `${code} · ${episode.name}`,
-            }}
-          />
-        )}
+            <FavoriteButton
+              item={{
+                id: episode.id,
+                title: `${show.name} ${code}`,
+                poster:
+                  stillUrl(episode.still_path) ?? posterUrl(show.poster_path),
+                subtitle: episode.name,
+                rating: episode.vote_average,
+                href: episodeHref(tvId, {
+                  season: episode.season_number,
+                  episode: episode.episode_number,
+                }),
+              }}
+              className="shrink-0"
+            />
+            {aired && (
+              <WatchLogButton
+                item={{
+                  tmdbId: tvId,
+                  mediaType: "tv",
+                  season: episode.season_number,
+                  episode: episode.episode_number,
+                  title: show.name,
+                  poster: posterUrl(show.poster_path),
+                  subtitle: `${code} · ${episode.name}`,
+                }}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="text-text-muted mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
@@ -217,7 +200,7 @@ function EpisodeDetailInner({
         )}
       </div>
 
-      {showSpoilers && episode.overview && (
+      {episode.overview && (
         <p className="text-text-muted mt-5 leading-relaxed">
           {episode.overview}
         </p>
@@ -230,9 +213,7 @@ function EpisodeDetailInner({
         </dl>
       )}
 
-      {showSpoilers && (
-        <CastGrid cast={episode.guest_stars} title="Guest stars" />
-      )}
+      <CastGrid cast={episode.guest_stars} title="Guest stars" />
 
       <nav className="border-border/60 mt-14 flex items-stretch justify-between gap-3 border-t pt-6">
         <EpisodeLink tvId={tvId} target={previous} direction="previous" />

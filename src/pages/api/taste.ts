@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "../../db";
-import { follows, users, watchLog } from "../../db/schema";
+import { follows, reviews, users } from "../../db/schema";
 import { sessionUserId } from "../../lib/auth/server";
 import { tasteMatches } from "../../lib/taste";
 import { json } from "../../lib/server/http";
@@ -16,12 +16,22 @@ export const GET: APIRoute = async ({ request }) => {
     .where(eq(follows.followerId, id))
     .limit(100);
   const rows = await db
-    .select()
-    .from(watchLog)
+    .select({
+      userId: reviews.userId,
+      tmdbId: reviews.tmdbId,
+      mediaType: reviews.mediaType,
+      rating: reviews.rating,
+      title: reviews.title,
+      poster: reviews.poster,
+    })
+    .from(reviews)
     .where(
-      inArray(watchLog.userId, [id, ...friends.map((friend) => friend.id)]),
+      and(
+        inArray(reviews.userId, [id, ...friends.map((friend) => friend.id)]),
+        isNotNull(reviews.rating),
+      ),
     )
-    .orderBy(desc(watchLog.watchedOn), desc(watchLog.id))
+    .orderBy(desc(reviews.updatedAt), desc(reviews.id))
     .limit(10000);
   return json(
     tasteMatches(

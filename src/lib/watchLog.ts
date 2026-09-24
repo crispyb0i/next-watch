@@ -11,18 +11,14 @@ export interface WatchEntryInput {
   title: string;
   poster?: string | null;
   subtitle?: string | null;
-  rating?: number | null;
-  review?: string | null;
+  notes?: string | null;
   /** `YYYY-MM-DD`. */
   watchedOn: string;
-  rewatch?: boolean;
-  venue?: string | null;
 }
 
 export interface WatchEntry extends WatchEntryInput {
   id: number;
   mediaType: MediaType;
-  rewatch: boolean;
 }
 
 /** Where an entry links back to, and how it reads in a list. */
@@ -92,18 +88,6 @@ export function parseEntry(
   if (episode != null && season == null)
     return { ok: false, error: "episode requires a season" };
 
-  const rating = raw.rating;
-  if (
-    rating != null &&
-    !(
-      typeof rating === "number" &&
-      Number.isInteger(rating * 2) &&
-      rating >= 0.5 &&
-      rating <= 5
-    )
-  )
-    return { ok: false, error: "rating must be 0.5-5 in half-star increments" };
-
   return {
     ok: true,
     value: {
@@ -114,11 +98,8 @@ export function parseEntry(
       title,
       poster: str(raw.poster, 300),
       subtitle: str(raw.subtitle, 100),
-      rating: rating == null ? null : (rating as number),
-      review: str(raw.review, 5000),
+      notes: str(raw.notes, 5000),
       watchedOn,
-      rewatch: raw.rewatch === true,
-      venue: str(raw.venue, 100),
     },
   };
 }

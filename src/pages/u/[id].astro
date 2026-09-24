@@ -3,14 +3,15 @@ export const prerender = false;
 import { isMissingSchema } from "../../lib/server/schemaErrors";
 import { mediaHref } from "../../lib/mediaHref";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import Layout from "../../layouts/Layout.astro";
 import MediaCard from "../../components/MediaCard.tsx";
 import FollowButton from "../../components/FollowButton.tsx";
 import { db } from "../../db";
-import { favorites, users, viewingPreferences } from "../../db/schema";
+import { favorites, reviews, users, viewingPreferences } from "../../db/schema";
 import { displayName, followState } from "../../lib/follows";
 import { entryHref } from "../../lib/watchLog";
+import { reviewHref } from "../../lib/reviews";
 import { listWatched } from "../api/watched";
 import "../../styles/global.css";
 
@@ -25,7 +26,7 @@ const [user] = id
 
 if (!user) return new Response("User not found", { status: 404 });
 
-const [rows, log, follow] = await Promise.all([
+const [rows, log, follow, reviewCount, reviewList] = await Promise.all([
   db
     .select({
       tmdbId: favorites.tmdbId,
@@ -43,9 +44,29 @@ const [rows, log, follow] = await Promise.all([
   // Counts only: the viewer is unknown server-side (no bearer token on page
   // requests), so FollowButton resolves its own state after mount.
   followState(user.id, null),
+  db
+    .select({ n: count() })
+    .from(reviews)
+    .where(eq(reviews.userId, user.id))
+    .then(([row]) => row?.n ?? 0),
+  db
+    .select({
+      id: reviews.id,
+      tmdbId: reviews.tmdbId,
+      mediaType: reviews.mediaType,
+      title: reviews.title,
+      poster: reviews.poster,
+      subtitle: reviews.subtitle,
+      rating: reviews.rating,
+      review: reviews.review,
+      updatedAt: reviews.updatedAt,
+    })
+    .from(reviews)
+    .where(eq(reviews.userId, user.id))
+    .orderBy(desc(reviews.updatedAt), desc(reviews.id))
+    .limit(12),
 ]);
 
-const name = displayName(user);
 const [preferences] = await db
   .select()
   .from(viewingPreferences)
@@ -65,14 +86,23 @@ const publicWatchlist = preferences?.watchlistPublic
       )
       .limit(100)
   : [];
+const name = displayName(user);
 const initials = name.slice(0, 2).toUpperCase();
 
-const formatDate = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+const formatDate = (value: string | Date) => {
+  const date =
+    value instanceof Date
+      ? value
+      : /^\d{4}-\d{2}-\d{2}$/.test(value)
+        ? new Date(`${value}T00:00:00`)
+        : new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+  return date.toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+};
 ---
 
 <Layout>
@@ -104,6 +134,8 @@ const formatDate = (iso: string) =>
           following
           <span aria-hidden="true"> · </span>
           {rows.length} {rows.length === 1 ? "favorite" : "favorites"}
+          <span aria-hidden="true"> · </span>
+          {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
         </p>
       </div>
       <FollowButton client:load userId={user.id} />
@@ -127,6 +159,7 @@ const formatDate = (iso: string) =>
         )}
       </section>
     )}
+
     <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
       Recently watched
     </h2>
@@ -134,19 +167,19 @@ const formatDate = (iso: string) =>
     {log.length === 0 ? (
       <p class="text-text-muted mt-6 text-sm">Nothing logged yet.</p>
     ) : (
-      <ul class="mt-6 space-y-3">
+      <ul class="mt-6 max-w-3xl space-y-3">
         {log.map((entry) => (
-          <li class="border-border/60 bg-surface-muted/30 flex gap-4 rounded-2xl border p-4">
+          <li class="border-border/60 bg-surface-muted/30 flex gap-3 rounded-2xl border p-3">
             <a href={entryHref(entry)} class="shrink-0">
               {entry.poster ? (
                 <img
                   src={entry.poster}
                   alt={entry.title}
                   loading="lazy"
-                  class="bg-surface-muted aspect-[2/3] w-16 rounded-lg object-cover"
+                  class="bg-surface-muted aspect-[2/3] w-14 rounded-lg object-cover"
                 />
               ) : (
-                <div class="bg-surface-muted aspect-[2/3] w-16 rounded-lg"></div>
+                <div class="bg-surface-muted aspect-[2/3] w-14 rounded-lg"></div>
               )}
             </a>
             <div class="min-w-0">
@@ -158,14 +191,56 @@ const formatDate = (iso: string) =>
               </a>
               <p class="text-text-muted mt-1 text-xs">
                 {formatDate(entry.watchedOn)}
-                {entry.rating != null && (
-                  <span> · {"★".repeat(Math.round(entry.rating))}</span>
-                )}
-                {entry.rewatch && <span> · rewatch</span>}
               </p>
-              {entry.review && (
+              {entry.notes && (
                 <p class="text-text-secondary mt-2 line-clamp-3 text-sm">
-                  {entry.review}
+                  {entry.notes}
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
+      Reviews
+    </h2>
+
+    {reviewList.length === 0 ? (
+      <p class="text-text-muted mt-6 text-sm">No reviews yet.</p>
+    ) : (
+      <ul class="mt-6 max-w-3xl space-y-3">
+        {reviewList.map((review) => (
+          <li class="border-border/60 bg-surface-muted/30 flex gap-3 rounded-2xl border p-3">
+            <a href={reviewHref(review)} class="shrink-0">
+              {review.poster ? (
+                <img
+                  src={review.poster}
+                  alt={review.title}
+                  loading="lazy"
+                  class="bg-surface-muted aspect-[2/3] w-14 rounded-lg object-cover"
+                />
+              ) : (
+                <div class="bg-surface-muted aspect-[2/3] w-14 rounded-lg"></div>
+              )}
+            </a>
+            <div class="min-w-0">
+              <a
+                href={reviewHref(review)}
+                class="text-text-primary font-bold hover:underline"
+              >
+                {review.title}
+              </a>
+              <p class="text-text-muted mt-1 text-xs">
+                {review.updatedAt && formatDate(review.updatedAt)}
+                {review.rating != null && (
+                  <span> · {"★".repeat(Math.round(review.rating))}</span>
+                )}
+              </p>
+              {review.review && (
+                <p class="text-text-secondary mt-2 line-clamp-3 text-sm">
+                  {review.review}
                 </p>
               )}
             </div>

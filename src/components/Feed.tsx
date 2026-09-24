@@ -14,10 +14,8 @@ interface FeedEntry {
   title: string;
   poster: string | null;
   subtitle: string | null;
-  rating: number | null;
-  review: string | null;
+  notes: string | null;
   watchedOn: string;
-  rewatch: boolean;
   userId: string;
   userName: string | null;
   userImage: string | null;
@@ -88,15 +86,9 @@ function Entry({ entry }: { entry: FeedEntry }) {
         >
           {entry.title}
         </a>
-        <p className="text-text-muted mt-1 text-xs">
-          {entry.subtitle}
-          {entry.rating != null && (
-            <span> · {"★".repeat(Math.round(entry.rating))}</span>
-          )}
-          {entry.rewatch && <span> · rewatch</span>}
-        </p>
-        {entry.review && (
-          <p className="text-text-secondary mt-2 text-sm">{entry.review}</p>
+        <p className="text-text-muted mt-1 text-xs">{entry.subtitle}</p>
+        {entry.notes && (
+          <p className="text-text-secondary mt-2 text-sm">{entry.notes}</p>
         )}
       </div>
     </li>

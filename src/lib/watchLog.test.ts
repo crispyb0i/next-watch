@@ -6,24 +6,13 @@ const base = { tmdbId: 27205, title: "Inception", watchedOn: "2024-05-01" };
 
 const good = parseEntry({
   ...base,
-  rating: 5,
-  review: "  bangs  ",
+  notes: "  bangs  ",
   venue: "",
-  rewatch: "yes",
   poster: 42,
 });
 assert.ok(good.ok);
-assert.equal(good.value.review, "bangs");
-assert.equal(good.value.venue, null);
+assert.equal(good.value.notes, "bangs");
 assert.equal(good.value.poster, null);
-assert.equal(good.value.rewatch, false, "only literal true counts");
-
-// Rating is optional, bounded, and accepts half-star increments.
-assert.ok(parseEntry({ ...base, rating: null }).ok);
-for (const rating of [0.5, 1, 3.5, 4.5, 5])
-  assert.equal(parseEntry({ ...base, rating }).ok, true, `rating ${rating}`);
-for (const rating of [0, 0.25, 3.25, 5.5, 6, "4.5"])
-  assert.equal(parseEntry({ ...base, rating }).ok, false, `rating ${rating}`);
 
 // Required fields.
 assert.equal(parseEntry({ ...base, tmdbId: 0 }).ok, false);
@@ -35,9 +24,9 @@ assert.ok(parseEntry({ ...base, watchedOn: todayISO() }).ok);
 assert.equal(parseEntry(null).ok, false);
 
 // Long text is truncated, not rejected.
-const long = parseEntry({ ...base, review: "x".repeat(9000) });
+const long = parseEntry({ ...base, notes: "x".repeat(9000) });
 assert.ok(long.ok);
-assert.equal(long.value.review?.length, 5000);
+assert.equal(long.value.notes?.length, 5000);
 
 // TV: season/episode are optional, but must be coherent.
 const tvBase = { ...base, mediaType: "tv", title: "Severance" };

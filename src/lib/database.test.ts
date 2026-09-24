@@ -239,7 +239,6 @@ try {
     tmdbId: 603,
     title: "The Matrix",
     watchedOn: "2024-01-02",
-    rating: 4.5,
   };
   const payload = { version: 1, favorites: [], watched: [entry] };
   assert.equal((await call(library.POST, payload)).status, 200);

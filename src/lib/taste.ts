@@ -1,6 +1,4 @@
 export interface TasteRating {
-  season?: number | null;
-  episode?: number | null;
   userId: string;
   tmdbId: number;
   mediaType: string;
@@ -16,9 +14,8 @@ export function tasteMatches(
   const key = (row: TasteRating) => `${row.mediaType}:${row.tmdbId}`;
   const seen = new Set(rows.filter((row) => row.userId === viewer).map(key));
   const byUser = new Map<string, Map<string, TasteRating>>();
-  // Callers supply newest logs first; rewatches must not overweight a title.
+  // Callers supply newest reviews first; keep only the latest per user/title.
   for (const row of rows) {
-    if (row.season != null || row.episode != null) continue;
     let map = byUser.get(row.userId);
     if (!map) byUser.set(row.userId, (map = new Map()));
     if (!map.has(key(row))) map.set(key(row), row);
