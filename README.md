@@ -38,6 +38,9 @@ PUBLIC_NEON_AUTH_URL=
 - `npm run lint` runs Astro diagnostics and Prettier checks; it does not run ESLint.
 - `npm test` runs unit and API tests plus an isolated in-memory PostgreSQL database.
   Database tests apply every migration and never use `DATABASE_URL`.
+  DOM interaction tests use mocked account responses to cover watchlist controls
+  and review loading, retry, cancellation, and save failures. Native dialog focus
+  trapping, Escape, and focus return still require browser verification.
 - `npm run test:integration` is the optional Neon integration check. It requires a
   disposable `TEST_DATABASE_URL`; the database name must include `test` unless
   it is on localhost. Never point it at an application database.
@@ -69,6 +72,13 @@ while the development server remains active. Start development with
 
 ## New account features
 
+- **Watchlist controls** (`/watchlist`): search saved titles, filter movies or TV,
+  and sort by saved order, title, or TMDB rating. Remove titles directly from the
+  list; log movies with the existing date/notes dialog, or open episode tracking
+  for TV. Successfully logging a movie removes it from the watchlist.
+- **Review dialogs**: failed loads show a retry action before editing is enabled.
+  Close is available while loading, dialogs have accessible names, and closing
+  or cancelling discards unsaved edits. Failed saves keep the current draft.
 - **Movie nights** (`/community`): create a group and share its invite. Joining
   explicitly shares a member's watchlist with that group. The shortlist combines
   saved titles and excludes titles any member has logged; each member has one

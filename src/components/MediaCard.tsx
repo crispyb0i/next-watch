@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useGroupImage } from "./ImageGroup";
 
 export default function MediaCard({
@@ -6,12 +7,14 @@ export default function MediaCard({
   subtitle,
   poster,
   rating,
+  actions,
 }: {
   href: string;
   title: string;
   subtitle?: string | null;
   poster: string | null;
   rating?: number | null;
+  actions?: ReactNode;
 }) {
   const { ready, onSettled } = useGroupImage(Boolean(poster));
 
@@ -72,6 +75,7 @@ export default function MediaCard({
           </div>
         </div>
       </a>
+      {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
     </li>
   );
 }
