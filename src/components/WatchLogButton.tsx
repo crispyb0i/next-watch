@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getJWTToken } from "../lib/auth/client";
 import { todayISO, type WatchEntryInput } from "../lib/watchLog";
@@ -165,11 +165,13 @@ export default function WatchLogButton({
   className?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const headingId = useId();
 
   return (
     <QueryProvider>
       <button
         type="button"
+        aria-label={`Log watch for ${item.title}`}
         onClick={async () => {
           if (await requireAuth()) dialog.current?.showModal();
         }}
@@ -180,9 +182,10 @@ export default function WatchLogButton({
 
       <dialog
         ref={dialog}
+        aria-labelledby={headingId}
         className="bg-surface text-text-primary border-border/60 m-auto w-[min(28rem,90vw)] rounded-2xl border p-6 backdrop:bg-black/60"
       >
-        <h2 className="text-lg font-extrabold tracking-tight">
+        <h2 id={headingId} className="text-lg font-extrabold tracking-tight">
           Log “{item.title}”
         </h2>
         {item.subtitle && (

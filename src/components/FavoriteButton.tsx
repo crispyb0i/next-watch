@@ -38,9 +38,11 @@ const style = {
 export default function FavoriteButton({
   item,
   className = "",
+  activeLabel,
 }: {
   item: Favorite;
   className?: string;
+  activeLabel?: string;
 }) {
   const favorites = useFavorites();
   const mediaType = item.mediaType ?? "movie";
@@ -77,7 +79,7 @@ export default function FavoriteButton({
       <span aria-hidden="true" className="text-base leading-none">
         {active ? copy.on : copy.off}
       </span>
-      {active ? copy.onLabel : copy.offLabel}
+      {active ? (activeLabel ?? copy.onLabel) : copy.offLabel}
     </button>
   );
 }

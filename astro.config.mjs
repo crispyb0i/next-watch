@@ -19,6 +19,16 @@ export default defineConfig({
       process.env.NODE_ENV === "production"
         ? "node_modules/.vite-production"
         : "node_modules/.vite",
+    // Discover navigation dependencies up front so loading ClientRouter does not
+    // re-optimize shared chunks and invalidate the dev toolbar's module URLs.
+    optimizeDeps: {
+      include: [
+        "astro/virtual-modules/transitions-events.js",
+        "astro/virtual-modules/transitions-router.js",
+        "astro/virtual-modules/transitions-swap-functions.js",
+        "astro/virtual-modules/transitions-types.js",
+      ],
+    },
     plugins: [tailwindcss()],
   },
 

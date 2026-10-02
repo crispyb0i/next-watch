@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getJWTToken } from "../lib/auth/client";
 import { reviewHref, type Review, type ReviewInput } from "../lib/reviews";
@@ -20,7 +20,7 @@ async function fetchOwnReview(
   mediaType: "movie" | "tv",
 ): Promise<Review | null> {
   const jwt = await getJWTToken();
-  if (!jwt) return null;
+  if (!jwt) throw new Error("Sign in to load your review.");
   const response = await fetch(
     `/api/reviews?tmdbId=${tmdbId}&mediaType=${mediaType}`,
     { headers: { authorization: `Bearer ${jwt}` } },
@@ -141,13 +141,18 @@ function ReviewForm({
           {save.error.message}
         </p>
       )}
+      {remove.isError && (
+        <p role="alert" className="text-danger text-sm">
+          {remove.error.message}
+        </p>
+      )}
 
       <div className="flex justify-end gap-2">
         {existing && (
           <button
             type="button"
             onClick={() => remove.mutate()}
-            disabled={remove.isPending}
+            disabled={remove.isPending || save.isPending}
             className="text-danger hover:text-danger/80 mr-auto rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
           >
             {remove.isPending ? "Deleting…" : "Delete"}
@@ -162,7 +167,7 @@ function ReviewForm({
         </button>
         <button
           type="submit"
-          disabled={save.isPending}
+          disabled={save.isPending || remove.isPending}
           className="bg-accent hover:bg-accent-hover rounded-full px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
         >
           {save.isPending
@@ -177,7 +182,7 @@ function ReviewForm({
 }
 
 /** "Write a review" button plus the form, in a native modal dialog. */
-export default function ReviewButton({
+function ReviewDialog({
   item,
   className = "",
 }: {
@@ -185,15 +190,17 @@ export default function ReviewButton({
   className?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const headingId = useId();
   const [open, setOpen] = useState(false);
   const reviewQuery = useQuery({
     queryKey: ["reviews", item.tmdbId, item.mediaType],
     queryFn: () => fetchOwnReview(item.tmdbId, item.mediaType ?? "movie"),
     enabled: open,
+    retry: false,
   });
 
   return (
-    <QueryProvider>
+    <>
       <button
         type="button"
         onClick={async () => {
@@ -209,25 +216,63 @@ export default function ReviewButton({
 
       <dialog
         ref={dialog}
+        aria-labelledby={headingId}
         onClose={() => setOpen(false)}
         className="bg-surface text-text-primary border-border/60 m-auto w-[min(28rem,90vw)] rounded-2xl border p-6 backdrop:bg-black/60"
       >
-        <h2 className="text-lg font-extrabold tracking-tight">
-          Review “{item.title}”
-        </h2>
+        <div className="flex items-start justify-between gap-4">
+          <h2 id={headingId} className="text-lg font-extrabold tracking-tight">
+            Review “{item.title}”
+          </h2>
+          <button
+            type="button"
+            aria-label="Close review dialog"
+            onClick={() => dialog.current?.close()}
+            className="text-text-muted hover:text-text-primary focus-visible:outline-accent rounded-full px-3 py-2 text-sm font-semibold focus-visible:outline-2"
+          >
+            Close
+          </button>
+        </div>
         {item.subtitle && (
           <p className="text-text-muted mt-1 text-sm">{item.subtitle}</p>
         )}
         {open && reviewQuery.isPending ? (
-          <p className="text-text-muted mt-4 text-sm">Loading…</p>
-        ) : (
+          <p role="status" className="text-text-muted mt-4 text-sm">
+            Loading your review…
+          </p>
+        ) : open && reviewQuery.isError ? (
+          <div className="mt-4 space-y-3">
+            <p role="alert" className="text-danger text-sm">
+              {reviewQuery.error.message}
+            </p>
+            <button
+              type="button"
+              onClick={() => void reviewQuery.refetch()}
+              disabled={reviewQuery.isFetching}
+              className="border-border/60 hover:border-accent focus-visible:outline-accent rounded-full border px-4 py-2 text-sm font-semibold focus-visible:outline-2"
+            >
+              {reviewQuery.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </div>
+        ) : open && reviewQuery.isSuccess ? (
           <ReviewForm
             item={item}
-            existing={reviewQuery.data ?? null}
+            existing={reviewQuery.data}
             onDone={() => dialog.current?.close()}
           />
-        )}
+        ) : null}
       </dialog>
+    </>
+  );
+}
+
+export default function ReviewButton(props: {
+  item: ReviewItem;
+  className?: string;
+}) {
+  return (
+    <QueryProvider>
+      <ReviewDialog {...props} />
     </QueryProvider>
   );
 }
