@@ -222,7 +222,7 @@ export function SearchBox({
         value={query.trim().startsWith("@") ? "users" : tab}
       />
       <span
-        className={`group-focus-within:text-accent pointer-events-none absolute inset-y-0 z-10 flex items-center transition ${compact ? "text-text-primary left-3" : "text-text-muted left-4 sm:left-5"}`}
+        className={`group-focus-within:text-accent pointer-events-none absolute inset-y-0 z-10 items-center transition ${compact ? "text-text-primary left-3 flex" : "text-text-muted left-5 hidden sm:flex"}`}
       >
         <SearchIcon />
       </span>
@@ -276,27 +276,28 @@ export function SearchBox({
         enterKeyHint="search"
         autoCapitalize="none"
         autoCorrect="off"
-        placeholder={
-          compact ? "Search movies & TV" : "Search movies, TV, people…"
-        }
+        placeholder={compact ? "Search movies & TV" : "Search Next Watch"}
         aria-label="Search"
         autoFocus={!compact && !initialQuery}
-        className={`border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted shadow-card focus:border-accent focus:ring-accent/25 w-full border backdrop-blur-xl transition outline-none focus:ring-4 [&::-webkit-search-cancel-button]:hidden ${compact ? "h-10 rounded-full pr-3 pl-11 text-sm" : "rounded-2xl py-3.5 pr-28 pl-11 text-base sm:py-4 sm:pr-32 sm:pl-13"}`}
+        className={`border-border/70 bg-surface-elevated/70 text-text-primary placeholder:text-text-muted shadow-card focus:border-accent focus:ring-accent/25 w-full border backdrop-blur-xl transition outline-none focus:ring-4 [&::-webkit-search-cancel-button]:hidden ${compact ? "h-10 rounded-full pr-3 pl-11 text-sm" : "h-14 rounded-xl pr-20 pl-4 text-base sm:h-auto sm:rounded-2xl sm:py-4 sm:pr-32 sm:pl-13"}`}
       />
       <div
         className={
           compact
             ? "hidden"
-            : "absolute inset-y-0 right-2 flex items-center gap-1.5"
+            : "absolute inset-y-0 right-1.5 flex items-center gap-1.5 sm:right-2"
         }
       >
         {suggestionsLoading && showSuggestions && <Spinner />}
         <button
           type="submit"
           disabled={!query.trim()}
-          className="bg-accent text-accent-contrast hover:bg-accent-hover focus-visible:outline-accent rounded-xl px-4 py-2 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40"
+          className="bg-accent text-accent-contrast hover:bg-accent-hover focus-visible:outline-accent flex size-11 shrink-0 items-center justify-center rounded-lg text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40 sm:h-auto sm:w-auto sm:rounded-xl sm:px-4 sm:py-2"
         >
-          Search
+          <span className="sm:hidden">
+            <SearchIcon />
+          </span>
+          <span className="sr-only sm:not-sr-only">Search</span>
         </button>
       </div>
       {showSuggestions && (

@@ -44,8 +44,41 @@ function TrendingInner() {
         <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
           Trending
         </h2>
+        <label className="relative sm:hidden">
+          <span className="sr-only">Trending time window</span>
+          <select
+            value={timeWindow}
+            onChange={(event) =>
+              setTimeWindow(event.target.value as TimeWindow)
+            }
+            className="border-border/60 bg-surface-muted/50 text-text-secondary focus-visible:outline-accent h-11 appearance-none rounded-xl border py-2 pr-8 pl-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            {TIME_WINDOWS.map(({ label, value }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            className="text-text-muted pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </label>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <FilterGroup label="Media type">
+          <FilterGroup
+            label="Media type"
+            className="flex w-full sm:w-auto [&>button]:min-h-11 [&>button]:flex-1 sm:[&>button]:min-h-0 sm:[&>button]:flex-none"
+          >
             {MEDIA_TYPES.map(({ label, value }) => (
               <FilterButton
                 key={value}
@@ -56,7 +89,7 @@ function TrendingInner() {
               </FilterButton>
             ))}
           </FilterGroup>
-          <FilterGroup label="Time window">
+          <FilterGroup label="Time window" className="hidden sm:flex">
             {TIME_WINDOWS.map(({ label, value }) => (
               <FilterButton
                 key={value}
@@ -76,10 +109,10 @@ function TrendingInner() {
         </p>
       )}
 
-      {isPending && <PosterGridSkeleton count={20} />}
+      {isPending && <PosterGridSkeleton count={20} className="mt-4 sm:mt-6" />}
 
       {items && items.length > 0 && (
-        <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <ul className="mt-4 grid grid-cols-2 gap-5 sm:mt-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) =>
             item.media_type === "movie" ? (
               <MediaCard
