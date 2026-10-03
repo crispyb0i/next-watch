@@ -16,6 +16,7 @@ const append = new Set([
   "watch/providers",
   "release_dates",
   "content_ratings",
+  "external_ids",
 ]);
 
 export function validateTmdb(path: string, params: Record<string, string>) {

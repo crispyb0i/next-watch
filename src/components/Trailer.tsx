@@ -10,12 +10,12 @@ export default function Trailer({ videos }: { videos: Video[] | undefined }) {
   if (!trailer) return null;
 
   return (
-    <div className="mt-14">
+    <div className="mt-12">
       <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
         Trailer
       </h2>
 
-      <div className="border-border/60 bg-surface-muted shadow-card relative mt-6 aspect-video w-full overflow-hidden rounded-2xl border">
+      <div className="border-border/60 bg-surface-muted shadow-card relative mt-4 aspect-video w-full overflow-hidden rounded-2xl border">
         {playing ? (
           <iframe
             src={`https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1`}

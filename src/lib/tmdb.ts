@@ -38,6 +38,11 @@ export interface MovieDetails extends Movie {
   tagline: string;
   vote_average: number;
   vote_count: number;
+  status?: string | null;
+  budget?: number | null;
+  revenue?: number | null;
+  homepage?: string | null;
+  external_ids?: ExternalIds;
   videos?: { results: Video[] };
   credits?: Credits;
   recommendations?: TmdbListResponse<Movie>;
@@ -89,6 +94,10 @@ export interface TvShowDetails extends TvShow {
   tagline: string;
   vote_average: number;
   vote_count: number;
+  status?: string | null;
+  homepage?: string | null;
+  created_by?: { id: number; name: string }[];
+  external_ids?: ExternalIds;
   videos?: { results: Video[] };
   aggregate_credits?: AggregateCredits;
   recommendations?: TmdbListResponse<TvShow>;
@@ -139,14 +148,35 @@ export interface CastMember {
 export interface Credits {
   id: number;
   cast: CastMember[];
+  crew?: CrewMember[];
 }
 
-/** `/tv` aggregate cast: roles span seasons, so `character` is a list. */
+export interface ExternalIds {
+  facebook_id?: string | null;
+  instagram_id?: string | null;
+  twitter_id?: string | null;
+  imdb_id?: string | null;
+}
+
+export interface CrewMember {
+  id: number;
+  name: string;
+  job: string;
+}
+
+export interface AggregateCrewMember {
+  id: number;
+  name: string;
+  jobs: { job: string; episode_count: number }[];
+}
+
+/** `/tv` aggregate credits: cast roles and crew jobs span all seasons. */
 export interface AggregateCredits {
   id: number;
   cast: (Omit<CastMember, "character"> & {
     roles: { character: string; episode_count: number }[];
   })[];
+  crew?: AggregateCrewMember[];
 }
 
 /** Aggregate cast -> flat `CastMember`, keeping the most-seen role. */
@@ -296,7 +326,7 @@ export async function getMovieDetails(
     `/movie/${movieId}`,
     {
       append_to_response:
-        "videos,credits,recommendations,similar,watch/providers,release_dates",
+        "videos,credits,recommendations,similar,watch/providers,release_dates,external_ids",
     },
     signal,
   );
@@ -310,7 +340,7 @@ export async function getTvShowDetails(
     `/tv/${tvId}`,
     {
       append_to_response:
-        "videos,aggregate_credits,recommendations,similar,watch/providers,content_ratings",
+        "videos,aggregate_credits,recommendations,similar,watch/providers,content_ratings,external_ids",
     },
     signal,
   );
@@ -395,7 +425,10 @@ export async function getPersonCredits(
   return data.cast;
 }
 
-export function posterUrl(path: string | null, size: "w200" | "w500" = "w200") {
+export function posterUrl(
+  path: string | null,
+  size: "w200" | "w500" | "original" = "w200",
+) {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }
 
@@ -406,7 +439,10 @@ export function backdropUrl(
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }
 
-export function profileUrl(path: string | null, size: "w185" = "w185") {
+export function profileUrl(
+  path: string | null,
+  size: "w185" | "h632" | "original" = "w185",
+) {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }
 

@@ -7,6 +7,8 @@ import { requireAuth } from "../lib/auth/gate";
 import QueryProvider from "./QueryProvider";
 import StarPicker from "./StarPicker";
 import CardMenu from "./CardMenu";
+import ActionIcon from "./ActionIcon";
+import IconTooltip from "./IconTooltip";
 import {
   plainReviewDocument,
   reviewDocumentText,
@@ -236,12 +238,14 @@ function ReviewDialog({
   label = "Write a review",
   menuLabel,
   reviewId,
+  compact = false,
 }: {
   item: ReviewItem;
   className?: string;
   label?: string;
   menuLabel?: string;
   reviewId?: number;
+  compact?: boolean;
 }) {
   const queryClient = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -307,14 +311,17 @@ function ReviewDialog({
           ]}
         />
       ) : (
-        <button
-          ref={button}
-          type="button"
-          onClick={openDialog}
-          className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${className}`}
-        >
-          {label}
-        </button>
+        <IconTooltip enabled={compact} label={label}>
+          <button
+            ref={button}
+            type="button"
+            onClick={openDialog}
+            aria-label={compact ? label : undefined}
+            className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${compact ? "flex size-11 shrink-0 items-center justify-center" : "px-3 py-1.5"} ${className}`}
+          >
+            {compact ? <ActionIcon kind="review" /> : label}
+          </button>
+        </IconTooltip>
       )}
 
       <dialog
@@ -431,6 +438,7 @@ export default function ReviewButton(props: {
   label?: string;
   menuLabel?: string;
   reviewId?: number;
+  compact?: boolean;
 }) {
   return (
     <QueryProvider>

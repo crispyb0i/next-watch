@@ -532,9 +532,10 @@ test("season actions save independent favorites, watchlists and rich review draf
       (entry) => entry.season === 1 && entry.kind === "watchlist",
     ),
   );
-  const reviewAction = [...actions.querySelectorAll("button")].find(
-    (element) => element.textContent?.trim() === "Write a review",
-  )!;
+  const reviewAction = actions.querySelector<HTMLButtonElement>(
+    'button[aria-label="Write a review"]',
+  );
+  assert.ok(reviewAction);
   await act(async () => reviewAction.click());
   await waitFor(() => assert.ok(editorElement()));
   assert.match(
@@ -631,8 +632,10 @@ test("season rows save and reopen separate episode reviews without sharing cache
     }),
   );
   const reviewButtons = [
-    ...document.querySelectorAll<HTMLButtonElement>("li button"),
-  ].filter((element) => element.textContent?.trim() === "Write a review");
+    ...document.querySelectorAll<HTMLButtonElement>(
+      'li [role="group"] button[aria-label="Write a review"]',
+    ),
+  ];
   assert.equal(reviewButtons.length, 2);
   await act(async () => reviewButtons[0].click());
   await waitFor(() => assert.ok(editorElement()));

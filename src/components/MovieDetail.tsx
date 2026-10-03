@@ -9,6 +9,7 @@ import {
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaDetail, { useRegion } from "./MediaDetail";
+import MediaFacts from "./MediaFacts";
 import FavoriteButton from "./FavoriteButton";
 import WatchLogButton from "./WatchLogButton";
 import ReviewButton from "./ReviewButton";
@@ -53,6 +54,7 @@ function MovieDetailInner({
       backdrop={backdropUrl(movie.backdrop_path)}
       backdropLarge={backdropUrl(movie.backdrop_path, "original")}
       poster={posterUrl(movie.poster_path, "w500")}
+      posterLarge={posterUrl(movie.poster_path, "original")}
       title={movie.title}
       tagline={movie.tagline}
       meta={meta}
@@ -60,6 +62,7 @@ function MovieDetailInner({
       voteAverage={movie.vote_average}
       certification={movieCertification(movie, region)}
       overview={movie.overview}
+      details={<MediaFacts mediaType="movie" media={movie} />}
       cast={movie.credits?.cast ?? []}
       before={
         <>
@@ -78,8 +81,10 @@ function MovieDetailInner({
       }
       actions={
         <>
-          {(["favorite", "watchlist"] as const).map((kind) => (
+          {(["watchlist", "favorite"] as const).map((kind) => (
             <FavoriteButton
+              compact={kind === "favorite"}
+              primary={kind === "watchlist"}
               key={kind}
               item={{
                 id: movie.id,
@@ -100,6 +105,7 @@ function MovieDetailInner({
             }}
           />
           <ReviewButton
+            compact
             item={{
               tmdbId: movie.id,
               title: movie.title,
@@ -108,6 +114,7 @@ function MovieDetailInner({
             }}
           />
           <AddToListButton
+            compact
             item={{
               tmdbId: movie.id,
               title: movie.title,
