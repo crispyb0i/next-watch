@@ -14,6 +14,7 @@ import QueryProvider from "./QueryProvider";
 import MediaDetail, { useRegion } from "./MediaDetail";
 import FavoriteButton from "./FavoriteButton";
 import ReviewButton from "./ReviewButton";
+import AddToListButton from "./AddToListButton";
 import Trailer from "./Trailer";
 import RelatedGrid from "./RelatedGrid";
 import WatchProviders from "./WatchProviders";
@@ -143,6 +144,15 @@ function TvDetailInner({
             />
           ))}
           <ReviewButton
+            item={{
+              tmdbId: show.id,
+              mediaType: "tv",
+              title: show.name,
+              poster: posterUrl(show.poster_path),
+              subtitle: show.first_air_date?.slice(0, 4),
+            }}
+          />
+          <AddToListButton
             item={{
               tmdbId: show.id,
               mediaType: "tv",

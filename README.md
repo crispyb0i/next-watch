@@ -101,6 +101,22 @@ light/dark appearance, and reduced motion.
 
 ## New account features
 
+- **Custom lists** (`/lists`): create named movie and TV collections with an
+  optional description. Use “Add to list” on movie, show, season, or episode
+  detail pages to choose a list or create one with that title already included.
+  Lists start private. Enable “Share with anyone who has the link” in the list
+  editor, then copy the link; visitors can view without an account, while only
+  the owner can edit, remove entries, or delete the list. Turning sharing off
+  revokes access for other viewers. Shared pages include server-rendered content
+  and link-preview metadata; private content never enters public HTML.
+  Entries use insertion order and duplicate additions are safe. These collections
+  are separate from favorites, watchlists, and the existing library export format.
+  Apply `drizzle/0018_custom_lists.sql` using `npm run db:migrate` before using
+  lists against a deployed database. Production migration/deployment still
+  requires explicit approval. Default tests apply the migration only to an
+  isolated in-memory database and cover visibility, ownership, rollback, title
+  identity, sharing, failed saves, and account isolation. Native dialog keyboard
+  behavior and mobile layout should also be verified in a browser.
 - **Watchlist controls** (`/watchlist`): search saved titles, filter movies or TV,
   and sort by saved order, title, or TMDB rating. Remove titles directly from the
   list; log movies with the existing date/notes dialog, or open episode tracking

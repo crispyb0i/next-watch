@@ -1,0 +1,27 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import ListDetail from "../../components/ListDetail";
+import { readList } from "../../lib/server/lists";
+import { isMissingSchema } from "../../lib/server/schemaErrors";
+import "../../styles/global.css";
+
+export const prerender = false;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+const id = Astro.params.id ?? "";
+// Only shared data may enter public HTML or link previews. Owners load private lists with their session.
+let list;
+try {
+  list = await readList(id, null);
+} catch (error) {
+  if (!isMissingSchema(error)) throw error;
+}
+---
+
+<Layout
+  title={list ? `${list.title} — Next Watch` : "List — Next Watch"}
+  description={list?.description || "A movie and TV list on Next Watch."}
+  image={list?.items.find((item) => item.poster)?.poster ?? undefined}
+  noindex
+>
+  <ListDetail id={id} initialData={list ?? undefined} client:load />
+</Layout>
