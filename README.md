@@ -78,18 +78,26 @@ document and shared query cache. The navbar search and notifications persist;
 search results remain visible while a different result set loads, with loading
 announcements and a retry action for failures.
 
-Discover, Trending, and Search fetch their results in the browser, so their page
-islands mount directly from the browser cache. Their server-rendered fallback
-markup preserves headings and loading geometry without hydrating cached cards
-against an empty server cache. Detail pages retain server-rendered initial data.
+The primary tabs share a persisted `TabView` React island. Route props update in
+place, lazy page modules keep the current content visible until ready, and warm
+queries render directly from the browser cache. Server-rendered fallbacks remain
+available on direct visits. The account menu and alerts indicator also mount from
+client session state to avoid server/client hydration mismatches. Detail pages
+retain server-rendered initial data.
+
+Reviews uses the same heading, filters, and row-shaped placeholders while auth
+and its first request load. Filters keep existing reviews visible while fetching,
+scoped to the current account; cached revisits skip placeholders entirely.
 Posters and cast photos render independently in reserved image dimensions; no
 grid waits for a slow image. Scrollbar space and account-control width are
 reserved, late font swaps are avoided, and reduced-motion preferences are honored.
 
 `npm test` includes navigation UI regressions for pending results, cached filters,
 cleared searches, failed requests and retry, keyboard suggestions, and query
-synchronization. Browser verification should also cover Back/Forward, pagination,
-mobile menus, light/dark appearance, and reduced motion.
+synchronization, Reviews loading/filter transitions, and account isolation.
+Browser verification should also cover direct and cached signed-in tab visits
+under CPU throttling, Back/Forward, pagination, session expiry, mobile menus,
+light/dark appearance, and reduced motion.
 
 ## New account features
 

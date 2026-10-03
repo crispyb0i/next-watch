@@ -11,7 +11,11 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://next-watch.test/watchlist",
   pretendToBeVisual: true,
 });
-const auth = { token: "test-token" as string | null };
+const auth = {
+  token: "test-token" as string | null,
+  userId: "test-user" as string | null,
+  pending: false,
+};
 Object.assign(globalThis, {
   window: dom.window,
   document: dom.window.document,
@@ -43,7 +47,7 @@ registerHooks({
     if (context.parentURL?.startsWith(sourceRoot)) {
       if (specifier.endsWith("auth/client"))
         return {
-          url: `data:text/javascript,${encodeURIComponent("export const getJWTToken = async () => globalThis.__nextWatchUiAuth.token; export const authClient = { useSession: () => ({ data: { user: { id: 'test-user' } }, isPending: false }) };")}`,
+          url: `data:text/javascript,${encodeURIComponent("export const getJWTToken = async () => globalThis.__nextWatchUiAuth.token; export const authClient = { useSession: () => { const auth = globalThis.__nextWatchUiAuth; return { data: auth.userId ? { user: { id: auth.userId } } : null, isPending: auth.pending }; } };")}`,
           shortCircuit: true,
         };
       if (specifier.endsWith("auth/gate"))
@@ -106,6 +110,9 @@ async function mount(element: ReactElement) {
   const host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
+  await render(element);
+}
+async function render(element: ReactElement) {
   await act(async () =>
     root!.render(
       createElement(QueryProvider, null, createElement(CaptureClient), element),
@@ -207,6 +214,8 @@ afterEach(async () => {
   client?.clear();
   document.body.replaceChildren();
   auth.token = "test-token";
+  auth.userId = "test-user";
+  auth.pending = false;
   _resetForTest([]);
 });
 after(() => dom.window.close());
@@ -902,4 +911,112 @@ test("logging from the watchlist keeps failed saves and removes only the success
   assert.equal(entry?.tmdbId, 603);
   assert.equal(entry?.mediaType, "movie");
   assert.equal(getFavorites()[0].mediaType, "tv");
+});
+
+test("reviews keep one loading layout from pending auth through the first request and render cached revisits immediately", async () => {
+  let resolveReviews!: (response: Response) => void;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return new Promise<Response>((resolve) => {
+      resolveReviews = resolve;
+    });
+  };
+  auth.userId = null;
+  auth.pending = true;
+  await mount(createElement(Reviews));
+  const loadingLayout = document.querySelector("main")!.innerHTML;
+  assert.equal(document.querySelector("h1")?.textContent, "Reviews");
+  assert.ok(document.querySelector('[aria-label="Loading your reviews"]'));
+  assert.equal(document.querySelector('ul[aria-hidden="true"]'), null);
+  assert.equal(requests, 0);
+
+  auth.userId = "test-user";
+  auth.pending = false;
+  await render(createElement(Reviews));
+  // Auth resolution only enables the filters; the rest of the loading
+  // markup remains identical until the reviews arrive.
+  assert.equal(document.querySelector("h1")?.textContent, "Reviews");
+  assert.ok(document.querySelector('[aria-label="Loading your reviews"]'));
+  assert.equal(document.querySelector('ul[aria-hidden="true"]'), null);
+  assert.equal(
+    document.querySelector("main")!.innerHTML,
+    loadingLayout.replaceAll(' disabled=""', ""),
+  );
+  await waitFor(() => assert.equal(requests, 1));
+  await act(async () =>
+    resolveReviews(
+      Response.json([
+        { ...review, status: "published", updatedAt: "2026-10-02T00:00:00Z" },
+      ]),
+    ),
+  );
+  await waitFor(() => assert.ok(document.querySelector("article")));
+  await render(createElement("div", null, "Another tab"));
+  await render(createElement(Reviews));
+  assert.ok(document.querySelector("article"));
+  assert.equal(
+    document.querySelector('[aria-label="Loading your reviews"]'),
+    null,
+  );
+  assert.equal(requests, 1);
+});
+
+test("reviews retain rows during slow filters, retry failures, and never carry placeholders across accounts", async () => {
+  const published = {
+    ...review,
+    status: "published",
+    updatedAt: "2026-10-02T00:00:00Z",
+  };
+  let resolveDrafts!: (response: Response) => void;
+  let fail = true;
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    if (url.searchParams.get("status") === "draft")
+      return new Promise<Response>((resolve) => {
+        resolveDrafts = resolve;
+      });
+    if (url.searchParams.get("status") === "published" && fail)
+      return Response.json({ error: "Reviews unavailable" }, { status: 503 });
+    return Response.json([published]);
+  };
+  await mount(createElement(Reviews));
+  await waitFor(() => assert.ok(document.querySelector("article")));
+  const original = document.querySelector("article");
+  await click("Drafts");
+  assert.equal(document.querySelector("article"), original);
+  assert.ok(document.querySelector('ul[aria-busy="true"]'));
+  assert.equal(
+    document.querySelector('[aria-label="Loading your reviews"]'),
+    null,
+  );
+  assert.match(
+    document.querySelector('[role="status"]')?.textContent ?? "",
+    /Updating reviews/,
+  );
+  await act(async () => resolveDrafts(Response.json([])));
+  await waitFor(() =>
+    assert.match(
+      document.querySelector("h2")?.textContent ?? "",
+      /No unfinished reviews/,
+    ),
+  );
+  await click("All reviews");
+  assert.ok(document.querySelector("article"));
+  await click("Published");
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /Reviews unavailable/,
+    ),
+  );
+  fail = false;
+  await click("Retry");
+  await waitFor(() => assert.ok(document.querySelector("article")));
+
+  globalThis.fetch = async () => new Promise<Response>(() => {});
+  auth.userId = "another-user";
+  await render(createElement(Reviews));
+  assert.equal(document.querySelector("article"), null);
+  assert.ok(document.querySelector('[aria-label="Loading your reviews"]'));
 });

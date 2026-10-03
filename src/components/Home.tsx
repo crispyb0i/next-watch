@@ -1,0 +1,21 @@
+import Trending from "./Trending";
+
+export default function Home() {
+  return (
+    <>
+      <header className="flex flex-col items-center gap-3 pt-2 pb-8 text-center sm:gap-4 sm:pt-10 sm:pb-12">
+        <h1 className="text-text-primary max-w-2xl text-3xl font-black tracking-tighter text-balance sm:text-6xl">
+          Find your next{" "}
+          <span className="from-brand-400 via-accent to-brand-600 bg-linear-to-r bg-clip-text text-transparent">
+            favorite watch
+          </span>
+        </h1>
+        <p className="text-text-muted max-w-xl text-sm text-balance sm:text-lg">
+          Search thousands of movies and shows — posters, release dates,
+          seasons, and cast in an instant.
+        </p>
+      </header>
+      <Trending />
+    </>
+  );
+}

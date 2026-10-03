@@ -1,13 +1,12 @@
 ---
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import Discover from "../components/Discover.tsx";
 import "../styles/global.css";
 ---
 
 <Layout>
-  <!-- Results live in the browser cache. Mount them directly on return visits
-       instead of hydrating cached cards against server loading placeholders. -->
-  <Discover client:only="react">
+  <TabView page="discover" client:only="react" transition:persist="tab-content">
     <Discover slot="fallback" />
-  </Discover>
+  </TabView>
 </Layout>

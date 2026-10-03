@@ -1,9 +1,12 @@
 ---
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import AvailabilityAlerts from "../components/AvailabilityAlerts";
 import "../styles/global.css";
 ---
 
 <Layout title="Streaming alerts — Next Watch" noindex>
-  <AvailabilityAlerts client:load />
+  <TabView page="alerts" client:only="react" transition:persist="tab-content">
+    <AvailabilityAlerts slot="fallback" />
+  </TabView>
 </Layout>

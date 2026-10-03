@@ -1,9 +1,16 @@
 ---
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import Favorites from "../components/Favorites.tsx";
 import "../styles/global.css";
 ---
 
 <Layout>
-  <Favorites kind="watchlist" client:load />
+  <TabView
+    page="watchlist"
+    client:only="react"
+    transition:persist="tab-content"
+  >
+    <Favorites kind="watchlist" slot="fallback" />
+  </TabView>
 </Layout>

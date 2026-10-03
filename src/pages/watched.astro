@@ -1,9 +1,12 @@
 ---
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import Watched from "../components/Watched.tsx";
 import "../styles/global.css";
 ---
 
 <Layout>
-  <Watched client:load />
+  <TabView page="watched" client:only="react" transition:persist="tab-content">
+    <Watched slot="fallback" />
+  </TabView>
 </Layout>
