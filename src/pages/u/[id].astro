@@ -7,12 +7,19 @@ import { and, count, desc, eq } from "drizzle-orm";
 import Layout from "../../layouts/Layout.astro";
 import MediaCard from "../../components/MediaCard.tsx";
 import FollowButton from "../../components/FollowButton.tsx";
+import ProfileRuntime from "../../components/ProfileRuntime.tsx";
+import ProfileStars from "../../components/ProfileStars.astro";
+import ReviewContent from "../../components/ReviewContent";
 import { db } from "../../db";
 import { favorites, reviews, users, viewingPreferences } from "../../db/schema";
 import { displayName, followState } from "../../lib/follows";
-import { entryHref } from "../../lib/watchLog";
+import {
+  activityHref,
+  activityLabel,
+  profilePage,
+  runtimePath,
+} from "../../lib/profileActivity";
 import { reviewHref } from "../../lib/reviews";
-import ReviewContent from "../../components/ReviewContent";
 import { listWatched } from "../api/watched";
 import "../../styles/global.css";
 
@@ -20,6 +27,16 @@ import "../../styles/global.css";
 Astro.response.headers.set("cache-control", "no-store");
 
 const { id } = Astro.params;
+let page: ReturnType<typeof profilePage>;
+try {
+  page = profilePage(Astro.url.searchParams);
+} catch {
+  return new Response("Invalid profile page", { status: 400 });
+}
+const { view, limit, offset } = page;
+const profileHref = `/u/${encodeURIComponent(id ?? "")}`;
+const pageHref = (section: "watched" | "reviews", start = 0) =>
+  `${profileHref}?view=${section}&offset=${start}#activity`;
 
 const [user] = id
   ? await db.select().from(users).where(eq(users.id, id)).limit(1)
@@ -27,7 +44,7 @@ const [user] = id
 
 if (!user) return new Response("User not found", { status: 404 });
 
-const [rows, log, follow, reviewCount, reviewList] = await Promise.all([
+const [rows, logRows, follow, reviewCount, reviewRows] = await Promise.all([
   db
     .select({
       tmdbId: favorites.tmdbId,
@@ -41,7 +58,9 @@ const [rows, log, follow, reviewCount, reviewList] = await Promise.all([
     .from(favorites)
     .where(and(eq(favorites.userId, user.id), eq(favorites.kind, "favorite")))
     .orderBy(desc(favorites.createdAt)),
-  listWatched(user.id).limit(12),
+  listWatched(user.id)
+    .limit(limit + 1)
+    .offset(view === "watched" ? offset : 0),
   // Counts only: the viewer is unknown server-side (no bearer token on page
   // requests), so FollowButton resolves its own state after mount.
   followState(user.id, null),
@@ -68,8 +87,12 @@ const [rows, log, follow, reviewCount, reviewList] = await Promise.all([
     .from(reviews)
     .where(and(eq(reviews.userId, user.id), eq(reviews.status, "published")))
     .orderBy(desc(reviews.updatedAt), desc(reviews.id))
-    .limit(12),
+    .limit(limit + 1)
+    .offset(view === "reviews" ? offset : 0),
 ]);
+const log = logRows.slice(0, limit);
+const reviewList = reviewRows.slice(0, limit);
+const hasNextPage = (view === "watched" ? logRows : reviewRows).length > limit;
 
 const [preferences] = await db
   .select()
@@ -111,7 +134,7 @@ const formatDate = (value: string | Date) => {
 
 <Layout>
   <div class="w-full">
-    <header class="flex items-center gap-5 sm:gap-6">
+    <header class="flex flex-wrap items-center gap-5 sm:gap-6">
       <div class="border-border/60 bg-surface-muted h-20 w-20 shrink-0 overflow-hidden rounded-full border sm:h-24 sm:w-24">
         {user.image ? (
           <img
@@ -145,7 +168,16 @@ const formatDate = (value: string | Date) => {
       <FollowButton client:load userId={user.id} />
     </header>
 
-    {preferences?.watchlistPublic && (
+    {view && (
+      <a
+        href={profileHref}
+        class="text-text-muted hover:text-text-primary focus-visible:outline-accent mt-8 inline-flex items-center gap-2 rounded-sm text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        <span aria-hidden="true">←</span> Back to profile
+      </a>
+    )}
+
+    {!view && preferences?.watchlistPublic && (
       <section class="mt-10">
         <h2 class="text-xl font-bold">Watchlist</h2>
         {publicWatchlist.length ? (
@@ -164,113 +196,275 @@ const formatDate = (value: string | Date) => {
       </section>
     )}
 
-    <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
-      Recently watched
-    </h2>
-
-    {log.length === 0 ? (
-      <p class="text-text-muted mt-6 text-sm">Nothing logged yet.</p>
-    ) : (
-      <ul class="mt-6 max-w-3xl space-y-3">
-        {log.map((entry) => (
-          <li class="border-border/60 bg-surface-muted/30 flex gap-3 rounded-2xl border p-3">
-            <a href={entryHref(entry)} class="shrink-0">
-              {entry.poster ? (
-                <img
-                  src={entry.poster}
-                  alt={entry.title}
-                  loading="lazy"
-                  class="bg-surface-muted aspect-[2/3] w-14 rounded-lg object-cover"
-                />
-              ) : (
-                <div class="bg-surface-muted aspect-[2/3] w-14 rounded-lg"></div>
-              )}
+    {view !== "reviews" && (
+      <section
+        id={view ? "activity" : "recently-watched"}
+        class="mt-10 scroll-mt-24"
+        aria-labelledby="watched-heading"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <h2
+            id="watched-heading"
+            class="text-text-primary text-xl font-extrabold tracking-tight sm:text-2xl"
+          >
+            {view ? "Watch history" : "Recently watched"}
+          </h2>
+          {!view && log.length > 0 && (
+            <a
+              href={pageHref("watched")}
+              class="text-accent hover:text-accent-hover focus-visible:outline-accent inline-flex shrink-0 items-center gap-2 rounded-sm text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4"
+              aria-label={`View all of ${name}'s watches`}
+            >
+              View all <span aria-hidden="true">→</span>
             </a>
-            <div class="min-w-0">
-              <a
-                href={entryHref(entry)}
-                class="text-text-primary font-bold hover:underline"
-              >
-                {entry.title}
-              </a>
-              <p class="text-text-muted mt-1 text-xs">
-                {formatDate(entry.watchedOn)}
-              </p>
-              {entry.notes && (
-                <p class="text-text-secondary mt-2 line-clamp-3 text-sm">
-                  {entry.notes}
-                </p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+          )}
+        </div>
+        {log.length === 0 ? (
+          <p class="text-text-muted mt-4 text-sm">
+            {offset ? "No more watches on this page." : "Nothing logged yet."}
+          </p>
+        ) : (
+          <ul class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            {log.map((entry) => (
+              <li class="min-w-0">
+                <a
+                  href={activityHref(entry)}
+                  class="group border-border/60 bg-surface-muted/30 hover:border-accent/40 hover:bg-surface-muted/60 focus-visible:outline-accent flex h-full items-start gap-3 rounded-2xl border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 sm:gap-4 sm:p-4"
+                >
+                  <div class="bg-surface-muted aspect-[2/3] w-16 shrink-0 overflow-hidden rounded-xl sm:w-20">
+                    {entry.poster ? (
+                      <img
+                        src={entry.poster}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        class="size-full object-cover"
+                      />
+                    ) : (
+                      <span class="text-text-muted flex size-full items-center justify-center p-2 text-center text-xs">
+                        No poster
+                      </span>
+                    )}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <h3
+                        class="text-text-primary min-w-0 flex-1 truncate text-base font-bold sm:text-lg"
+                        title={entry.title}
+                      >
+                        {entry.title}
+                      </h3>
+                      <span class="border-accent/20 bg-accent/10 text-accent shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold tracking-wide uppercase">
+                        {activityLabel(entry)}
+                      </span>
+                    </div>
+                    {entry.subtitle && (
+                      <p
+                        class="text-text-secondary mt-1 truncate text-sm"
+                        title={entry.subtitle}
+                      >
+                        {entry.subtitle}
+                      </p>
+                    )}
+                    <div class="text-text-muted mt-3 flex min-h-5 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                      <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <svg
+                          aria-hidden="true"
+                          class="size-4 shrink-0"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.7"
+                        >
+                          <rect x="3" y="5" width="18" height="16" rx="2" />
+                          <path
+                            d="M7 3v4m10-4v4M3 11h18"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                        <span class="sr-only">Watched on </span>
+                        <time datetime={entry.watchedOn}>
+                          {formatDate(entry.watchedOn)}
+                        </time>
+                      </span>
+                      {runtimePath(entry) && (
+                        <ProfileRuntime
+                          client:visible
+                          path={runtimePath(entry)!}
+                        />
+                      )}
+                    </div>
+                    {entry.notes && (
+                      <p
+                        class="text-text-secondary mt-3 truncate text-sm"
+                        title={entry.notes}
+                      >
+                        {entry.notes}
+                      </p>
+                    )}
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     )}
 
-    <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
-      Reviews
-    </h2>
-
-    {reviewList.length === 0 ? (
-      <p class="text-text-muted mt-6 text-sm">No reviews yet.</p>
-    ) : (
-      <ul class="mt-6 max-w-3xl space-y-3">
-        {reviewList.map((review) => (
-          <li class="border-border/60 bg-surface-muted/30 flex gap-3 rounded-2xl border p-3">
-            <a href={reviewHref(review)} class="shrink-0">
-              {review.poster ? (
-                <img
-                  src={review.poster}
-                  alt={review.title}
-                  loading="lazy"
-                  class="bg-surface-muted aspect-[2/3] w-14 rounded-lg object-cover"
-                />
-              ) : (
-                <div class="bg-surface-muted aspect-[2/3] w-14 rounded-lg"></div>
-              )}
+    {view !== "watched" && (
+      <section
+        id={view ? "activity" : "profile-reviews"}
+        class="mt-10 scroll-mt-24"
+        aria-labelledby="reviews-heading"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <h2
+            id="reviews-heading"
+            class="text-text-primary text-xl font-extrabold tracking-tight sm:text-2xl"
+          >
+            Reviews
+          </h2>
+          {!view && reviewCount > 0 && (
+            <a
+              href={pageHref("reviews")}
+              class="text-accent hover:text-accent-hover focus-visible:outline-accent inline-flex shrink-0 items-center gap-2 rounded-sm text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4"
+              aria-label={`View all of ${name}'s reviews`}
+            >
+              View all <span aria-hidden="true">→</span>
             </a>
-            <div class="min-w-0">
-              <a
-                href={reviewHref(review)}
-                class="text-text-primary font-bold hover:underline"
-              >
-                {review.title}
-              </a>
-              <p class="text-text-muted mt-1 text-xs">
-                {review.updatedAt && formatDate(review.updatedAt)}
-                {review.rating != null && (
-                  <span> · {"★".repeat(Math.round(review.rating))}</span>
-                )}
-              </p>
-              {review.review && (
-                <div class="text-text-secondary mt-2 text-sm">
-                  <ReviewContent review={review} />
+          )}
+        </div>
+        {reviewList.length === 0 ? (
+          <p class="text-text-muted mt-4 text-sm">
+            {offset ? "No more reviews on this page." : "No reviews yet."}
+          </p>
+        ) : (
+          <ul class="mt-4 space-y-3">
+            {reviewList.map((review) => (
+              <li class="border-border/60 bg-surface-muted/30 flex items-start gap-3 rounded-2xl border p-3 sm:gap-5 sm:p-4">
+                <a
+                  href={reviewHref(review)}
+                  class="bg-surface-muted focus-visible:outline-accent aspect-[2/3] w-16 shrink-0 overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 sm:w-20"
+                  aria-label={`View ${review.title}`}
+                >
+                  {review.poster ? (
+                    <img
+                      src={review.poster}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      class="size-full object-cover"
+                    />
+                  ) : (
+                    <span class="text-text-muted flex size-full items-center justify-center p-2 text-center text-xs">
+                      No poster
+                    </span>
+                  )}
+                </a>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
+                    <h3 class="min-w-0 flex-1">
+                      <a
+                        href={reviewHref(review)}
+                        class="text-text-primary focus-visible:outline-accent block truncate rounded-sm text-base font-bold hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 sm:text-lg"
+                        title={review.title}
+                      >
+                        {review.title}
+                      </a>
+                    </h3>
+                    <time
+                      class="text-text-muted shrink-0 text-xs"
+                      datetime={review.updatedAt.toISOString()}
+                      title="Last updated"
+                    >
+                      {formatDate(review.updatedAt)}
+                    </time>
+                  </div>
+                  {review.subtitle && (
+                    <p
+                      class="text-text-muted mt-1 truncate text-xs"
+                      title={review.subtitle}
+                    >
+                      {review.subtitle}
+                    </p>
+                  )}
+                  {review.rating != null && (
+                    <div class="mt-2">
+                      <ProfileStars rating={review.rating} />
+                    </div>
+                  )}
+                  {review.review &&
+                    (view === "reviews" ? (
+                      <div class="text-text-secondary mt-3 text-sm leading-relaxed">
+                        <ReviewContent review={review} />
+                      </div>
+                    ) : (
+                      <p
+                        class="text-text-secondary mt-3 line-clamp-2 text-sm leading-relaxed wrap-anywhere"
+                        title={review.review}
+                      >
+                        {review.review}
+                      </p>
+                    ))}
                 </div>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     )}
 
-    <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
-      Favorites
-    </h2>
+    {view && (offset > 0 || hasNextPage) && (
+      <nav
+        aria-label={view === "watched" ? "Watch history pages" : "Review pages"}
+        class="mt-6 flex items-center justify-between gap-4"
+      >
+        <div>
+          {offset > 0 && (
+            <a
+              href={pageHref(view, Math.max(0, offset - limit))}
+              class="border-border/60 hover:bg-surface-muted focus-visible:outline-accent inline-flex rounded-xl border px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4"
+            >
+              ← Previous
+            </a>
+          )}
+        </div>
+        <span class="text-text-muted text-sm">Page {offset / limit + 1}</span>
+        <div>
+          {hasNextPage && (
+            <a
+              href={pageHref(view, offset + limit)}
+              class="border-border/60 hover:bg-surface-muted focus-visible:outline-accent inline-flex rounded-xl border px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4"
+            >
+              Next →
+            </a>
+          )}
+        </div>
+      </nav>
+    )}
 
-    {rows.length === 0 ? (
-      <p class="text-text-muted mt-6 text-sm">Nothing favorited yet.</p>
-    ) : (
-      <ul class="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {rows.map((movie) => (
-          <MediaCard
-            href={mediaHref(movie.href, movie.mediaType, movie.tmdbId)}
-            title={movie.title}
-            subtitle={movie.subtitle}
-            poster={movie.poster}
-            rating={movie.rating}
-          />
-        ))}
-      </ul>
+    {!view && (
+      <>
+        <h2 class="text-text-primary mt-12 text-xl font-extrabold tracking-tight">
+          Favorites
+        </h2>
+
+        {rows.length === 0 ? (
+          <p class="text-text-muted mt-6 text-sm">Nothing favorited yet.</p>
+        ) : (
+          <ul class="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {rows.map((movie) => (
+              <MediaCard
+                href={mediaHref(movie.href, movie.mediaType, movie.tmdbId)}
+                title={movie.title}
+                subtitle={movie.subtitle}
+                poster={movie.poster}
+                rating={movie.rating}
+              />
+            ))}
+          </ul>
+        )}
+      </>
     )}
   </div>
   <!-- `no-store` covers the HTTP cache; this covers back/forward cache, which
