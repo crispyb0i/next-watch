@@ -20,7 +20,7 @@ function ReviewLayout({
   onFilter?: (filter: ReviewFilter) => void;
 }) {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+    <main className="mx-auto w-full max-w-5xl py-8 sm:px-6 sm:py-12">
       <p className="text-accent-hover text-xs font-bold tracking-widest uppercase">
         Your collection
       </p>
@@ -70,15 +70,17 @@ function ReviewRowsSkeleton() {
         <div
           key={index}
           aria-hidden="true"
-          className="border-border/60 bg-surface-muted/20 flex min-h-56 gap-4 rounded-2xl border p-4 sm:gap-5 sm:p-6"
+          className="border-border/60 bg-surface-muted/20 grid min-h-56 grid-cols-[auto_minmax(0,1fr)] gap-4 rounded-2xl border p-4 sm:gap-5 sm:p-6"
         >
-          <div className="bg-surface-muted aspect-[2/3] h-fit w-16 shrink-0 rounded-lg sm:w-20" />
-          <div className="min-w-0 flex-1 space-y-4">
+          <div className="bg-surface-muted aspect-[2/3] h-fit w-16 rounded-lg sm:row-span-2 sm:w-20" />
+          <div className="min-w-0 space-y-4">
             <div className="bg-surface-muted h-6 w-24 rounded-full" />
             <div className="bg-surface-muted h-6 w-2/3 rounded" />
             <div className="bg-surface-muted h-3 w-1/3 rounded" />
+          </div>
+          <div className="col-span-full space-y-4 sm:col-span-1">
             <div className="bg-surface-muted h-4 w-full rounded" />
-            <div className="bg-surface-muted h-8 w-28 rounded-lg" />
+            <div className="bg-surface-muted h-4 w-2/3 rounded" />
           </div>
         </div>
       ))}
@@ -167,11 +169,11 @@ function ReviewLibrary() {
               key={review.id}
               className="border-border/60 bg-surface-muted/20 rounded-2xl border p-4 sm:p-6"
             >
-              <article className="flex items-start gap-4 sm:gap-5">
+              <article className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 sm:gap-x-5 sm:gap-y-4">
                 <a
                   href={reviewHref(review)}
                   aria-label={`View ${review.title}`}
-                  className="shrink-0"
+                  className="sm:row-span-2"
                 >
                   {review.poster ? (
                     <img
@@ -189,7 +191,7 @@ function ReviewLibrary() {
                     </div>
                   )}
                 </a>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 wrap-anywhere">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${review.status === "draft" ? "bg-accent/15 text-accent-hover" : "bg-surface-muted text-text-muted"}`}
@@ -223,17 +225,6 @@ function ReviewLibrary() {
                     {review.subtitle ? ` · ${review.subtitle}` : ""} · Updated{" "}
                     {new Date(review.updatedAt).toLocaleDateString()}
                   </p>
-                  <div className="mt-4 text-sm">
-                    {review.review ? (
-                      <ReviewContent review={review} />
-                    ) : (
-                      <p className="text-text-muted italic">
-                        {review.status === "draft"
-                          ? "A few thoughts still to come…"
-                          : "A rating says it all."}
-                      </p>
-                    )}
-                  </div>
                 </div>
                 {session?.user.id && review.userId === session.user.id && (
                   <ReviewButton
@@ -247,6 +238,17 @@ function ReviewLibrary() {
                     }
                   />
                 )}
+                <div className="col-span-full min-w-0 text-sm sm:col-span-2 sm:col-start-2">
+                  {review.review ? (
+                    <ReviewContent review={review} />
+                  ) : (
+                    <p className="text-text-muted italic">
+                      {review.status === "draft"
+                        ? "A few thoughts still to come…"
+                        : "A rating says it all."}
+                    </p>
+                  )}
+                </div>
               </article>
             </li>
           ))}

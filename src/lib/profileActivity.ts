@@ -1,4 +1,5 @@
 import { pagination } from "./pagination.ts";
+import { episodeCode } from "./tmdb.ts";
 
 export interface ActivityTarget {
   tmdbId: number;
@@ -11,6 +12,35 @@ export function activityLabel(entry: ActivityTarget) {
   if (entry.mediaType === "movie") return "Movie";
   if (entry.episode != null) return "Episode";
   return entry.season != null ? "Season" : "TV show";
+}
+
+/** Present both quick-log combined titles and detail-page subtitles consistently. */
+export function activityText(
+  entry: ActivityTarget & { title: string; subtitle?: string | null },
+) {
+  if (
+    entry.mediaType !== "tv" ||
+    entry.season == null ||
+    entry.episode == null
+  ) {
+    return { title: entry.title, subtitle: entry.subtitle ?? null, code: null };
+  }
+
+  const code = episodeCode(entry.season, entry.episode);
+  const marker = ` · ${code}`;
+  const index = entry.title.indexOf(marker);
+  const rest = index < 0 ? "" : entry.title.slice(index + marker.length);
+  const combined = index > 0 && (rest === "" || rest.startsWith(" · "));
+  const title = combined ? entry.title.slice(0, index) : entry.title;
+  const metadata =
+    (combined ? rest.slice(3).trim() : "") || entry.subtitle?.trim() || "";
+  const subtitle =
+    metadata === code
+      ? null
+      : metadata.startsWith(`${code} · `)
+        ? metadata.slice(code.length + 3)
+        : metadata || null;
+  return { title, subtitle, code };
 }
 
 export function activityHref(entry: ActivityTarget) {

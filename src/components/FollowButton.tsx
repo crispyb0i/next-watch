@@ -40,7 +40,7 @@ export default function FollowButton({ userId }: { userId: string }) {
     return (
       <a
         href="/settings"
-        className="border-border/60 bg-surface-muted/30 text-text-secondary hover:text-text-primary focus-visible:outline-accent inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-4"
+        className="border-border/60 bg-surface-muted/30 text-text-secondary hover:text-text-primary focus-visible:outline-accent inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-4 sm:px-4"
       >
         <svg
           aria-hidden="true"
@@ -53,7 +53,7 @@ export default function FollowButton({ userId }: { userId: string }) {
           <path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" strokeLinejoin="round" />
           <path d="m14 5 5 5" />
         </svg>
-        Edit profile
+        <span className="sr-only sm:not-sr-only">Edit profile</span>
       </a>
     );
   }

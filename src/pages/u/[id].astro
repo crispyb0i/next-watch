@@ -16,6 +16,7 @@ import { displayName, followState } from "../../lib/follows";
 import {
   activityHref,
   activityLabel,
+  activityText,
   profilePage,
   runtimePath,
 } from "../../lib/profileActivity";
@@ -134,7 +135,7 @@ const formatDate = (value: string | Date) => {
 
 <Layout>
   <div class="w-full">
-    <header class="flex flex-wrap items-center gap-5 sm:gap-6">
+    <header class="flex items-start gap-4 sm:gap-6">
       <div class="border-border/60 bg-surface-muted h-20 w-20 shrink-0 overflow-hidden rounded-full border sm:h-24 sm:w-24">
         {user.image ? (
           <img
@@ -150,22 +151,33 @@ const formatDate = (value: string | Date) => {
         )}
       </div>
       <div class="min-w-0 flex-1">
-        <h1 class="text-text-primary truncate text-3xl font-black tracking-tight sm:text-4xl">
-          {name}
-        </h1>
-        <p class="text-text-muted mt-1 text-base sm:text-lg">
-          <strong class="text-text-primary">{follow.followers}</strong>{" "}
-          {follow.followers === 1 ? "follower" : "followers"}
-          <span aria-hidden="true"> · </span>
-          <strong class="text-text-primary">{follow.following}</strong>{" "}
-          following
-          <span aria-hidden="true"> · </span>
-          {rows.length} {rows.length === 1 ? "favorite" : "favorites"}
-          <span aria-hidden="true"> · </span>
-          {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
-        </p>
+        <div class="flex min-h-11 items-center gap-3">
+          <h1 class="text-text-primary min-w-0 text-3xl font-black tracking-tight wrap-anywhere sm:text-4xl">
+            {name}
+          </h1>
+          <FollowButton client:only="react" userId={user.id} />
+        </div>
+        <div class="text-text-muted mt-1 flex flex-col gap-x-4 gap-y-1 text-sm sm:flex-row sm:flex-wrap sm:text-lg">
+          <p class="flex flex-wrap gap-x-3 gap-y-1">
+            <span class="whitespace-nowrap">
+              <strong class="text-text-primary">{follow.followers}</strong>{" "}
+              {follow.followers === 1 ? "follower" : "followers"}
+            </span>
+            <span class="whitespace-nowrap">
+              <strong class="text-text-primary">{follow.following}</strong>{" "}
+              following
+            </span>
+          </p>
+          <p class="flex flex-wrap gap-x-3 gap-y-1">
+            <span class="whitespace-nowrap">
+              {rows.length} {rows.length === 1 ? "favorite" : "favorites"}
+            </span>
+            <span class="whitespace-nowrap">
+              {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
+            </span>
+          </p>
+        </div>
       </div>
-      <FollowButton client:load userId={user.id} />
     </header>
 
     {view && (
@@ -205,7 +217,7 @@ const formatDate = (value: string | Date) => {
         <div class="flex items-center justify-between gap-4">
           <h2
             id="watched-heading"
-            class="text-text-primary text-xl font-extrabold tracking-tight sm:text-2xl"
+            class="text-text-primary text-lg font-bold tracking-tight sm:text-2xl sm:font-extrabold"
           >
             {view ? "Watch history" : "Recently watched"}
           </h2>
@@ -224,88 +236,96 @@ const formatDate = (value: string | Date) => {
             {offset ? "No more watches on this page." : "Nothing logged yet."}
           </p>
         ) : (
-          <ul class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            {log.map((entry) => (
-              <li class="min-w-0">
-                <a
-                  href={activityHref(entry)}
-                  class="group border-border/60 bg-surface-muted/30 hover:border-accent/40 hover:bg-surface-muted/60 focus-visible:outline-accent flex h-full items-start gap-3 rounded-2xl border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 sm:gap-4 sm:p-4"
-                >
-                  <div class="bg-surface-muted aspect-[2/3] w-16 shrink-0 overflow-hidden rounded-xl sm:w-20">
-                    {entry.poster ? (
-                      <img
-                        src={entry.poster}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        class="size-full object-cover"
-                      />
-                    ) : (
-                      <span class="text-text-muted flex size-full items-center justify-center p-2 text-center text-xs">
-                        No poster
-                      </span>
-                    )}
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
-                      <h3
-                        class="text-text-primary min-w-0 flex-1 truncate text-base font-bold sm:text-lg"
-                        title={entry.title}
-                      >
-                        {entry.title}
-                      </h3>
-                      <span class="border-accent/20 bg-accent/10 text-accent shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold tracking-wide uppercase">
-                        {activityLabel(entry)}
-                      </span>
-                    </div>
-                    {entry.subtitle && (
-                      <p
-                        class="text-text-secondary mt-1 truncate text-sm"
-                        title={entry.subtitle}
-                      >
-                        {entry.subtitle}
-                      </p>
-                    )}
-                    <div class="text-text-muted mt-3 flex min-h-5 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                      <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                        <svg
-                          aria-hidden="true"
-                          class="size-4 shrink-0"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.7"
-                        >
-                          <rect x="3" y="5" width="18" height="16" rx="2" />
-                          <path
-                            d="M7 3v4m10-4v4M3 11h18"
-                            stroke-linecap="round"
-                          />
-                        </svg>
-                        <span class="sr-only">Watched on </span>
-                        <time datetime={entry.watchedOn}>
-                          {formatDate(entry.watchedOn)}
-                        </time>
-                      </span>
-                      {runtimePath(entry) && (
-                        <ProfileRuntime
-                          client:visible
-                          path={runtimePath(entry)!}
+          <ul class="mt-4 grid grid-cols-1 items-start gap-3 md:grid-cols-2">
+            {log.map((entry) => {
+              const { title, subtitle, code } = activityText(entry);
+              const metadata = [code, subtitle].filter(Boolean).join(" · ");
+              return (
+                <li class="min-w-0">
+                  <a
+                    href={activityHref(entry)}
+                    class="group border-border/60 bg-surface-muted/30 hover:border-accent/40 hover:bg-surface-muted/60 focus-visible:outline-accent flex items-start gap-4 rounded-2xl border p-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4"
+                  >
+                    <div class="bg-surface-muted aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-xl">
+                      {entry.poster ? (
+                        <img
+                          src={entry.poster}
+                          alt=""
+                          width={96}
+                          height={144}
+                          loading="lazy"
+                          decoding="async"
+                          class="size-full object-cover"
                         />
+                      ) : (
+                        <span class="text-text-muted flex size-full items-center justify-center p-2 text-center text-xs">
+                          No poster
+                        </span>
                       )}
                     </div>
-                    {entry.notes && (
-                      <p
-                        class="text-text-secondary mt-3 truncate text-sm"
-                        title={entry.notes}
+                    <div class="flex min-h-36 min-w-0 flex-1 flex-col">
+                      <span class="text-accent text-[10px] font-bold tracking-wider uppercase">
+                        {activityLabel(entry)}
+                      </span>
+                      <h3
+                        class="text-text-primary mt-1 truncate text-base leading-snug font-bold sm:text-lg"
+                        title={title}
                       >
-                        {entry.notes}
-                      </p>
-                    )}
-                  </div>
-                </a>
-              </li>
-            ))}
+                        {title}
+                      </h3>
+                      {metadata && (
+                        <p
+                          class="text-text-secondary mt-1 line-clamp-2 text-sm leading-snug wrap-anywhere"
+                          title={metadata}
+                        >
+                          {code && (
+                            <span class="whitespace-nowrap">{code}</span>
+                          )}
+                          {code && subtitle && " · "}
+                          {subtitle}
+                        </p>
+                      )}
+                      {entry.notes && (
+                        <p
+                          class="text-text-secondary mt-2 truncate text-sm"
+                          title={entry.notes}
+                        >
+                          {entry.notes}
+                        </p>
+                      )}
+                      <div class="text-text-muted mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-xs">
+                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                          <svg
+                            aria-hidden="true"
+                            class="size-4 shrink-0"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.7"
+                          >
+                            <rect x="3" y="5" width="18" height="16" rx="2" />
+                            <path
+                              d="M7 3v4m10-4v4M3 11h18"
+                              stroke-linecap="round"
+                            />
+                          </svg>
+                          <span class="sr-only">Watched on </span>
+                          <time datetime={entry.watchedOn}>
+                            {formatDate(entry.watchedOn)}
+                          </time>
+                        </span>
+                        {runtimePath(entry) && (
+                          <ProfileRuntime
+                            client:visible
+                            path={runtimePath(entry)!}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

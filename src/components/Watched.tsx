@@ -253,12 +253,6 @@ function WatchedInner() {
             <h1 className="text-text-primary mt-2 text-3xl font-extrabold tracking-tight">
               Watched
             </h1>
-            {!isPending && entries.length > 0 && (
-              <p className="text-text-muted mt-2 text-sm">
-                {entries.length} {entries.length === 1 ? "watch" : "watches"}
-                {hasNextPage ? " loaded" : ""} in {monthName}
-              </p>
-            )}
           </div>
           <nav
             aria-label="Choose month and year"
@@ -361,7 +355,7 @@ function WatchedInner() {
           >
             <h2
               id={`log-heading-${month}`}
-              className="bg-surface/75 text-text-secondary sticky top-20 z-10 mb-5 py-3 font-mono text-sm font-semibold tracking-widest uppercase backdrop-blur"
+              className="bg-surface/75 text-text-secondary sticky top-20 z-10 mb-5 px-4 py-3 font-mono text-sm font-semibold tracking-widest uppercase backdrop-blur"
             >
               {new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, {
                 month: "long",

@@ -28,15 +28,17 @@ export function FilterButton({
 export function FilterGroup({
   label,
   children,
+  className = "flex",
 }: {
   label: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <div
       role="group"
       aria-label={label}
-      className="border-border/60 bg-surface-muted/50 flex shrink-0 gap-1 rounded-full border p-1 backdrop-blur"
+      className={`border-border/60 bg-surface-muted/50 max-w-full shrink-0 gap-1 rounded-3xl border p-1 backdrop-blur sm:rounded-full ${className}`}
     >
       {children}
     </div>
