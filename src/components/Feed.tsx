@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { authClient, getJWTToken } from "../lib/auth/client";
-import { entryHref } from "../lib/watchLog";
+import { activityHref, activityLabel } from "../lib/profileActivity";
 import QueryProvider from "./QueryProvider";
 import AuthGate from "./AuthGate";
 
@@ -45,7 +45,7 @@ const formatDate = (iso: string) =>
 const nameOf = (entry: FeedEntry) => entry.userName || "Movie fan";
 
 function Entry({ entry }: { entry: FeedEntry }) {
-  const href = entryHref(entry);
+  const href = activityHref(entry);
   const name = nameOf(entry);
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const initials = name
@@ -57,73 +57,90 @@ function Entry({ entry }: { entry: FeedEntry }) {
     .toUpperCase();
 
   return (
-    <li className="border-border/60 bg-surface-muted/30 flex items-start gap-3 rounded-xl border p-3.5">
-      <a
-        href={`/u/${entry.userId}`}
-        aria-label={`View ${name}'s profile`}
-        className="bg-accent/10 text-accent ring-border/60 focus-visible:outline-accent flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-lg font-bold ring-1 focus-visible:outline-2 focus-visible:outline-offset-4"
-      >
-        {entry.userImage && entry.userImage !== failedImage ? (
-          <img
-            src={entry.userImage}
-            alt=""
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            onError={() => setFailedImage(entry.userImage)}
-            className="size-full object-cover"
-          />
-        ) : (
-          <span aria-hidden="true">{initials}</span>
-        )}
-      </a>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <h2 className="text-text-primary text-lg leading-snug font-bold wrap-anywhere">
+    <li className="border-border/60 bg-surface-muted/30 min-w-0 rounded-2xl border p-4">
+      <div className="border-border/40 flex items-center gap-3 border-b pb-3">
+        <a
+          href={`/u/${entry.userId}`}
+          aria-label={`View ${name}'s profile`}
+          className="bg-accent/10 text-accent ring-border/60 focus-visible:outline-accent flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-base font-bold ring-1 focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
+          {entry.userImage && entry.userImage !== failedImage ? (
+            <img
+              src={entry.userImage}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setFailedImage(entry.userImage)}
+              className="size-full object-cover"
+            />
+          ) : (
+            <span aria-hidden="true">{initials}</span>
+          )}
+        </a>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-text-primary text-lg leading-snug font-bold">
             <a
               href={`/u/${entry.userId}`}
-              className="focus-visible:outline-accent rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+              title={name}
+              className="focus-visible:outline-accent block truncate rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
             >
               {name}
             </a>
           </h2>
-          <time className="text-text-muted text-xs" dateTime={entry.watchedOn}>
-            {formatDate(entry.watchedOn)}
-          </time>
+          <p className="text-text-muted mt-0.5 truncate text-xs">
+            Watched ·{" "}
+            <time dateTime={entry.watchedOn}>
+              {formatDate(entry.watchedOn)}
+            </time>
+          </p>
         </div>
-        <p className="text-text-secondary mt-1 text-sm leading-snug wrap-anywhere">
-          <span className="text-text-muted">Watched </span>
-          <a
-            href={href}
-            className="focus-visible:outline-accent rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+      </div>
+      <a
+        href={href}
+        className="group focus-visible:outline-accent mt-4 flex items-start gap-4 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        <div className="bg-surface-muted aspect-[2/3] w-20 shrink-0 overflow-hidden rounded-lg shadow-sm">
+          {entry.poster ? (
+            <img
+              src={entry.poster}
+              alt=""
+              width={80}
+              height={120}
+              loading="lazy"
+              decoding="async"
+              className="size-full object-cover"
+            />
+          ) : (
+            <span className="text-text-muted flex size-full items-center justify-center p-2 text-center text-xs">
+              No poster
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3
+            className="text-text-primary group-hover:text-accent truncate text-base leading-snug font-bold transition-colors sm:text-lg"
+            title={entry.title}
           >
             {entry.title}
-          </a>
-        </p>
-        {entry.subtitle && (
-          <p className="text-text-muted mt-1 text-xs wrap-anywhere">
-            {entry.subtitle}
-          </p>
-        )}
-        {entry.notes && (
-          <p className="text-text-secondary mt-2 text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap">
-            {entry.notes}
-          </p>
-        )}
-      </div>
-      {entry.poster && (
-        <a
-          href={href}
-          aria-label={`View ${entry.title}`}
-          className="focus-visible:outline-accent shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4"
-        >
-          <img
-            src={entry.poster}
-            alt=""
-            loading="lazy"
-            className="bg-surface-muted aspect-[2/3] w-9 rounded-md object-cover"
-          />
-        </a>
-      )}
+          </h3>
+          <span className="border-accent/20 bg-accent/10 text-accent mt-2 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase">
+            {activityLabel(entry)}
+          </span>
+          {entry.subtitle && (
+            <p
+              className="text-text-muted mt-2 truncate text-sm"
+              title={entry.subtitle}
+            >
+              {entry.subtitle}
+            </p>
+          )}
+          {entry.notes && (
+            <p className="text-text-secondary mt-3 text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap">
+              {entry.notes}
+            </p>
+          )}
+        </div>
+      </a>
     </li>
   );
 }
@@ -156,15 +173,23 @@ function FeedList() {
             <div
               key={index}
               aria-hidden="true"
-              className="border-border/60 flex items-start gap-3 rounded-xl border p-3.5 motion-safe:animate-pulse"
+              className="border-border/60 rounded-2xl border p-4 motion-safe:animate-pulse"
             >
-              <div className="bg-surface-muted size-12 shrink-0 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <div className="bg-surface-muted h-5 w-1/2 rounded" />
-                <div className="bg-surface-muted h-4 w-3/4 rounded" />
-                <div className="bg-surface-muted h-3 w-1/3 rounded" />
+              <div className="border-border/40 flex items-center gap-3 border-b pb-3">
+                <div className="bg-surface-muted size-10 shrink-0 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="bg-surface-muted h-5 w-1/3 rounded" />
+                  <div className="bg-surface-muted h-3 w-1/2 rounded" />
+                </div>
               </div>
-              <div className="bg-surface-muted h-13.5 w-9 shrink-0 rounded-md" />
+              <div className="mt-4 flex gap-4">
+                <div className="bg-surface-muted h-30 w-20 shrink-0 rounded-lg" />
+                <div className="flex-1 space-y-3">
+                  <div className="bg-surface-muted h-5 w-3/4 rounded" />
+                  <div className="bg-surface-muted h-5 w-14 rounded-md" />
+                  <div className="bg-surface-muted h-4 w-1/3 rounded" />
+                </div>
+              </div>
             </div>
           ))}
         </div>
