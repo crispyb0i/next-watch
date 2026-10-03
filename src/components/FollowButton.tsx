@@ -36,7 +36,27 @@ export default function FollowButton({ userId }: { userId: string }) {
   // Render nothing until state is known, so the label never flips under the
   // user. Signed out is the exception: show Follow, click routes to sign-in.
   if (isPending || (signedIn && following === null)) return null;
-  if (session?.user.id === userId) return null;
+  if (session?.user.id === userId) {
+    return (
+      <a
+        href="/settings"
+        className="border-border/60 bg-surface-muted/30 text-text-secondary hover:text-text-primary focus-visible:outline-accent inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        <svg
+          aria-hidden="true"
+          className="size-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" strokeLinejoin="round" />
+          <path d="m14 5 5 5" />
+        </svg>
+        Edit profile
+      </a>
+    );
+  }
 
   async function toggle() {
     if (!(await requireAuth())) return;

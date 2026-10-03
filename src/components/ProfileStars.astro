@@ -1,0 +1,44 @@
+---
+interface Props {
+  rating: number;
+}
+const { rating } = Astro.props;
+---
+
+<span
+  class="inline-flex items-center gap-2"
+  aria-label={`${rating} out of 5 stars`}
+>
+  <span class="text-accent inline-flex gap-0.5" aria-hidden="true">
+    {Array.from({ length: 5 }, (_, index) => (
+      <span class="relative block size-4 sm:size-5">
+        <svg
+          class="text-text-muted/60 size-full"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z" />
+        </svg>
+        <span
+          class="absolute inset-y-0 left-0 overflow-hidden"
+          style={`width:${Math.max(0, Math.min(1, rating - index)) * 100}%`}
+        >
+          <svg
+            class="size-4 max-w-none sm:size-5"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z" />
+          </svg>
+        </span>
+      </span>
+    ))}
+  </span>
+  <span class="text-text-muted text-sm" aria-hidden="true">
+    {rating}/5
+  </span>
+</span>
