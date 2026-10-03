@@ -86,19 +86,17 @@ function SearchInner({
           Search
         </h1>
         <SearchBox initialQuery={initialQuery} tab={activeTab} />
-        {/* Horizontal scroll instead of wrapping: five pills never fit one
-            phone row, and a stray second row reads as a layout bug. */}
         <div
           role="group"
           aria-label="Result type"
-          className="-mx-4 mt-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
+          className="mt-4 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-center"
         >
           {TABS.map(([value, label]) => (
             <a
               key={value}
               aria-current={activeTab === value ? "page" : undefined}
               href={`/search?${new URLSearchParams({ q: value === "users" ? submitted : term, tab: value })}`}
-              className={`shrink-0 rounded-full border px-4 py-2 text-sm whitespace-nowrap transition ${
+              className={`shrink-0 rounded-full border px-4 py-2 text-center text-sm whitespace-nowrap transition ${
                 activeTab === value
                   ? "border-accent bg-accent/15 text-accent"
                   : "border-border/60 text-text-muted hover:text-text-primary"

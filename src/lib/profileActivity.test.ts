@@ -3,11 +3,70 @@ import { test } from "node:test";
 import {
   activityHref,
   activityLabel,
+  activityText,
   fetchRuntime,
   formatRuntime,
   profilePage,
   runtimePath,
 } from "./profileActivity.ts";
+
+test("profile episode cards separate show titles from quick logs and detail-page metadata", () => {
+  const episode = {
+    tmdbId: 42,
+    mediaType: "tv" as const,
+    season: 1,
+    episode: 3,
+  };
+  const expected = {
+    title: "Ted Lasso",
+    code: "S01E03",
+    subtitle: "Trent Crimm: The Independent",
+  };
+  for (const text of [
+    { title: "Ted Lasso · S01E03 · Trent Crimm: The Independent" },
+    { title: "Ted Lasso", subtitle: "S01E03 · Trent Crimm: The Independent" },
+    { title: "Ted Lasso", subtitle: "Trent Crimm: The Independent" },
+    { title: "Ted Lasso · S01E03", subtitle: "Trent Crimm: The Independent" },
+  ]) {
+    assert.deepEqual(activityText({ ...episode, ...text }), expected);
+  }
+  assert.deepEqual(
+    activityText({ ...episode, title: "Show · S01E03 · Part I · Part II" }),
+    { title: "Show", subtitle: "Part I · Part II", code: "S01E03" },
+  );
+});
+
+test("profile activity keeps episode identifiers with missing metadata and preserves other titles", () => {
+  const show = { tmdbId: 42, mediaType: "tv" as const, title: "Example show" };
+  const special = { ...show, season: 0, episode: 1 };
+  for (const subtitle of [undefined, null, "", "S00E01"]) {
+    assert.deepEqual(activityText({ ...special, subtitle }), {
+      title: "Example show",
+      subtitle: null,
+      code: "S00E01",
+    });
+  }
+  for (const title of ["Show · S02E01 · Finale", "Show · S00E010"])
+    assert.equal(activityText({ ...special, title }).title, title);
+
+  for (const entry of [
+    { ...show, subtitle: "2026" },
+    { ...show, season: 1, subtitle: "Season 1" },
+    { ...show, episode: 1 },
+    {
+      ...show,
+      mediaType: "movie" as const,
+      title: "A title · S01E03",
+      subtitle: "2026",
+    },
+  ]) {
+    assert.deepEqual(activityText(entry), {
+      title: entry.title,
+      subtitle: "subtitle" in entry ? entry.subtitle : null,
+      code: null,
+    });
+  }
+});
 
 test("profile activity preserves movie, show, season and special-episode destinations", () => {
   const movie = { tmdbId: 42, mediaType: "movie" as const };
