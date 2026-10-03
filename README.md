@@ -79,6 +79,36 @@ while the development server remains active. Start development with
 - **Review dialogs**: failed loads show a retry action before editing is enabled.
   Close is available while loading, dialogs have accessible names, and closing
   or cancelling discards unsaved edits. Failed saves keep the current draft.
+- **Rich reviews and drafts** (`/reviews`, linked in desktop and mobile navigation):
+  write with bold, italic, strikethrough, lists, and quotes. Save an unfinished
+  review as a private draft, resume it from Reviews, and publish when ready.
+  All, Published, and Drafts filters include pagination, editing, and deletion.
+  The editor loads on demand. Reviews retain the 5,000-character limit; formatted
+  content is validated as structured text and rendered without raw HTML.
+  Existing plain-text reviews remain readable and editable. Drafts are excluded
+  from public profiles, public review lists, and taste recommendations.
+  Apply `drizzle/0015_review_drafts.sql` with `npm run db:migrate` before deploying
+  this feature. It adds nullable document content and a constrained status with
+  `published` as the default, preserving existing reviews. Production migration
+  still requires explicit approval. The default tests apply this migration only
+  to an isolated in-memory database.
+- **Episode reviews**: choose Write a review on an episode in a season list or
+  on its detail page. Ratings, rich text, private drafts, editing, and deletion
+  work independently for each episode, including specials (season 0). Reviews
+  and public profile links return to the episode. Episode ratings do not replace
+  whole-show ratings in taste recommendations. Apply
+  `drizzle/0016_episode_reviews.sql` with `npm run db:migrate` before deploying;
+  it adds nullable season/episode coordinates, validates them, and extends the
+  unique review key while preserving existing movie and show reviews. Default
+  tests apply the migration only to an isolated in-memory database.
+- **Season actions**: season detail pages offer Favorite, Watchlist, and Write a
+  review for the entire season, including Specials. Each season stays separate
+  from its series, sibling seasons, and episodes. Season reviews support rich
+  text and private drafts; saved cards and review links return to that season.
+  JSON library export/import preserves season watchlist and favorite entries.
+  Apply `drizzle/0017_season_actions.sql` before deploying. It extends saved-item
+  keys and permits season-level reviews while preserving existing records;
+  production migration still requires explicit approval.
 - **Movie nights** (`/community`): create a group and share its invite. Joining
   explicitly shares a member's watchlist with that group. The shortlist combines
   saved titles and excludes titles any member has logged; each member has one

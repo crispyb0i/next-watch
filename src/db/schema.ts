@@ -1,10 +1,12 @@
 import { sql } from "drizzle-orm";
+import type { ReviewNode } from "../lib/reviewDocument";
 import {
   boolean,
   check,
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   real,
@@ -66,9 +68,8 @@ export const favorites = pgTable(
       .$type<"movie" | "tv">()
       .notNull()
       .default("movie"),
-    // ponytail: one text column instead of (mediaType, season, episode) — the
-    // favorites grid only ever needs somewhere to link. Break it into typed
-    // columns if favorites ever need filtering or grouping by media type.
+    /** -1 preserves the identity of existing movie/show/episode saved items. */
+    season: integer("season").notNull().default(-1),
     href: text("href"),
     title: text("title").notNull(),
     poster: text("poster"),
@@ -78,8 +79,18 @@ export const favorites = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [table.userId, table.tmdbId, table.mediaType, table.kind],
+      columns: [
+        table.userId,
+        table.tmdbId,
+        table.mediaType,
+        table.kind,
+        table.season,
+      ],
     }),
+    check(
+      "favorites_season_check",
+      sql`${table.season} = -1 or (${table.mediaType} = 'tv' and ${table.season} >= 0)`,
+    ),
   ],
 );
 
@@ -123,7 +134,7 @@ export const watchLog = pgTable(
   ],
 );
 
-/** Reviews are separate from watch logs: one per user per movie/show. */
+/** Reviews are separate from watch logs: one per user per movie/show/season/episode. */
 export const reviews = pgTable(
   "reviews",
   {
@@ -136,12 +147,19 @@ export const reviews = pgTable(
       .$type<"movie" | "tv">()
       .notNull()
       .default("movie"),
+    season: integer("season"),
+    episode: integer("episode"),
     title: text("title").notNull(),
     poster: text("poster"),
     subtitle: text("subtitle"),
     /** 0.5-5 stars in half-star increments, null when not rated. */
     rating: real("rating"),
     review: text("review"),
+    document: jsonb("document").$type<ReviewNode>(),
+    status: text("status")
+      .$type<"draft" | "published">()
+      .notNull()
+      .default("published"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -150,6 +168,16 @@ export const reviews = pgTable(
       table.userId,
       table.tmdbId,
       table.mediaType,
+      sql`coalesce(${table.season}, -1)`,
+      sql`coalesce(${table.episode}, -1)`,
+    ),
+    check(
+      "reviews_episode_check",
+      sql`(${table.season} is null and ${table.episode} is null) or (${table.mediaType} = 'tv' and ${table.season} is not null and ${table.season} >= 0 and (${table.episode} is null or ${table.episode} > 0))`,
+    ),
+    check(
+      "reviews_status_check",
+      sql`${table.status} in ('draft', 'published')`,
     ),
     index("reviews_user_updated_idx").on(
       table.userId,

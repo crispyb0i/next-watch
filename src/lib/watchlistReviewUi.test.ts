@@ -18,6 +18,11 @@ Object.assign(globalThis, {
   localStorage: dom.window.localStorage,
   CustomEvent: dom.window.CustomEvent,
   FormData: dom.window.FormData,
+  Node: dom.window.Node,
+  HTMLElement: dom.window.HTMLElement,
+  getComputedStyle: dom.window.getComputedStyle,
+  requestAnimationFrame: dom.window.requestAnimationFrame.bind(dom.window),
+  cancelAnimationFrame: dom.window.cancelAnimationFrame.bind(dom.window),
   IS_REACT_ACT_ENVIRONMENT: true,
   __nextWatchUiAuth: auth,
 });
@@ -76,7 +81,14 @@ registerHooks({
 const { createRoot } = await import("react-dom/client");
 const { default: ReviewButton } =
   await import("../components/ReviewButton.tsx");
+const { default: Reviews } = await import("../components/Reviews.tsx");
 const { default: Favorites } = await import("../components/Favorites.tsx");
+const { default: SeasonDetail } =
+  await import("../components/SeasonDetail.tsx");
+const { default: EpisodeDetail } =
+  await import("../components/EpisodeDetail.tsx");
+const { reviewHref } = await import("./reviews.ts");
+const { reviewDocumentText } = await import("./reviewDocument.ts");
 const { default: QueryProvider } =
   await import("../components/QueryProvider.tsx");
 const { _resetForTest, getFavorites } = await import("./favorites.ts");
@@ -125,8 +137,71 @@ async function waitFor(check: () => void) {
     }
   }
 }
+function editorElement() {
+  return document.querySelector<HTMLElement>(
+    '[role="textbox"][contenteditable]',
+  );
+}
+async function typeReview(text: string) {
+  await act(async () => {
+    const editor = editorElement()!;
+    editor.replaceChildren(document.createElement("p"));
+    editor.firstChild!.textContent = text;
+    editor.dispatchEvent(
+      new dom.window.InputEvent("input", {
+        bubbles: true,
+        inputType: "insertText",
+        data: text,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 const movie = { tmdbId: 603, mediaType: "movie" as const, title: "The Matrix" };
 const review = { ...movie, id: 7, rating: 4, review: "Saved review" };
+const episode = {
+  id: 9001,
+  season_number: 1,
+  episode_number: 1,
+  name: "Pilot",
+  overview: "The story begins.",
+  air_date: "2020-01-01",
+  runtime: 40,
+  still_path: null,
+  vote_average: 8,
+  vote_count: 10,
+  guest_stars: [],
+  crew: [],
+};
+const season = {
+  id: 900,
+  season_number: 1,
+  name: "Season 1",
+  overview: "",
+  air_date: "2020-01-01",
+  episode_count: 2,
+  poster_path: null,
+  episodes: [
+    episode,
+    { ...episode, id: 9002, episode_number: 2, name: "Second episode" },
+  ],
+};
+const show = {
+  id: 1399,
+  name: "Example show",
+  first_air_date: "2020-01-01",
+  poster_path: null,
+  overview: "",
+  vote_average: 8,
+  backdrop_path: null,
+  genres: [],
+  episode_run_time: [40],
+  number_of_seasons: 1,
+  number_of_episodes: 2,
+  seasons: [season],
+  tagline: "",
+  vote_count: 10,
+};
 afterEach(async () => {
   await act(async () => root?.unmount());
   client?.clear();
@@ -135,6 +210,329 @@ afterEach(async () => {
   _resetForTest([]);
 });
 after(() => dom.window.close());
+
+test("season actions save independent favorites, watchlists and rich review drafts", async () => {
+  const title = "Example show · Season 1";
+  const seriesFavorite = {
+    id: show.id,
+    mediaType: "tv" as const,
+    title: show.name,
+    poster: null,
+  };
+  _resetForTest([
+    seriesFavorite,
+    { ...seriesFavorite, season: 2, title: "Example show · Season 2" },
+  ]);
+  const writes: Record<string, unknown>[] = [];
+  const ownReview: { value: Record<string, unknown> | null } = { value: null };
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    if (url.pathname === "/api/favorites") {
+      if (init?.method === "POST") {
+        const entry = JSON.parse(String(init.body));
+        assert.equal(entry.tmdbId, show.id);
+        assert.equal(entry.season, 1);
+        assert.equal(entry.href, `/tv/season?id=${show.id}&season=1`);
+        writes.push(entry);
+      }
+      return Response.json({ ok: true });
+    }
+    if (url.pathname !== "/api/reviews") return Response.json([]);
+    if (init?.method === "POST" || init?.method === "PATCH") {
+      const entry = JSON.parse(String(init.body));
+      assert.equal(entry.tmdbId, show.id);
+      assert.equal(entry.season, 1);
+      assert.equal(entry.episode, undefined);
+      ownReview.value = {
+        ...entry,
+        id: 99,
+        review: reviewDocumentText(entry.document),
+      };
+    } else {
+      assert.equal(url.searchParams.get("season"), "1");
+      assert.equal(url.searchParams.has("episode"), false);
+    }
+    return Response.json(ownReview.value);
+  };
+  await mount(
+    createElement(SeasonDetail, {
+      tvId: show.id,
+      seasonNumber: 1,
+      initialShow: show,
+      initialData: season,
+    }),
+  );
+  const actions = document.querySelector('[aria-label="Season actions"]');
+  assert.ok(actions);
+  assert.equal(
+    button(`Favorite ${title}`).getAttribute("aria-pressed"),
+    "false",
+  );
+  await click(`Favorite ${title}`);
+  await waitFor(() =>
+    assert.equal(
+      button(`Unfavorite ${title}`).getAttribute("aria-pressed"),
+      "true",
+    ),
+  );
+  await click(`Add ${title} to watchlist`);
+  await waitFor(() =>
+    assert.equal(
+      button(`Remove ${title} from watchlist`).getAttribute("aria-pressed"),
+      "true",
+    ),
+  );
+  assert.equal(getFavorites().length, 4);
+  assert.deepEqual(
+    writes.map((entry) => entry.kind),
+    ["favorite", "watchlist"],
+  );
+  await click(`Unfavorite ${title}`);
+  await waitFor(() => assert.equal(getFavorites().length, 3));
+  assert.ok(getFavorites().some((entry) => entry.season == null));
+  assert.ok(getFavorites().some((entry) => entry.season === 2));
+  assert.ok(
+    getFavorites().some(
+      (entry) => entry.season === 1 && entry.kind === "watchlist",
+    ),
+  );
+  const reviewAction = [...actions.querySelectorAll("button")].find(
+    (element) => element.textContent?.trim() === "Write a review",
+  )!;
+  await act(async () => reviewAction.click());
+  await waitFor(() => assert.ok(editorElement()));
+  assert.match(
+    document.querySelector("dialog[open]")?.textContent ?? "",
+    /Example show · Season 1/,
+  );
+  await typeReview("This entire season was wonderful");
+  await click("Save draft");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.equal(ownReview.value?.status, "draft");
+  await act(async () => reviewAction.click());
+  await waitFor(() =>
+    assert.equal(
+      editorElement()?.textContent,
+      "This entire season was wonderful",
+    ),
+  );
+  await click("Publish review");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.equal(ownReview.value?.status, "published");
+});
+
+test("season watchlist cards link back to their season and remove only that entry", async () => {
+  const base = {
+    id: show.id,
+    mediaType: "tv" as const,
+    kind: "watchlist" as const,
+    title: show.name,
+    poster: null,
+  };
+  _resetForTest([
+    base,
+    { ...base, season: 0, title: "Example show · Specials" },
+    { ...base, season: 1, title: "Example show · Season 1" },
+  ]);
+  let deleted = "";
+  globalThis.fetch = async (input, init) => {
+    if (init?.method === "DELETE") deleted = String(input);
+    return Response.json({ ok: true });
+  };
+  await mount(createElement(Favorites, { kind: "watchlist" }));
+  assert.equal(document.querySelectorAll("li").length, 3);
+  assert.ok(
+    document.querySelector(`a[href="/tv/season?id=${show.id}&season=0"]`),
+  );
+  assert.ok(
+    document.querySelector(`a[href="/tv/season?id=${show.id}&season=1"]`),
+  );
+  await click("Remove Example show · Season 1 from watchlist");
+  await waitFor(() => assert.equal(document.querySelectorAll("li").length, 2));
+  assert.match(deleted, /season=1$/);
+  assert.equal(getFavorites().filter((entry) => entry.season === 0).length, 1);
+  assert.equal(
+    getFavorites().filter((entry) => entry.season == null).length,
+    1,
+  );
+});
+
+test("season rows save and reopen separate episode reviews without sharing cached drafts", async () => {
+  const saved = new Map<string, Record<string, unknown>>();
+  const lookups: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    if (url.pathname !== "/api/reviews") return Response.json([]);
+    if (init?.method === "POST" || init?.method === "PATCH") {
+      const entry = JSON.parse(String(init.body));
+      assert.equal(entry.tmdbId, show.id);
+      assert.equal(entry.mediaType, "tv");
+      const key = `${entry.season}/${entry.episode}`;
+      const row = {
+        ...entry,
+        id: entry.episode,
+        review: reviewDocumentText(entry.document),
+      };
+      saved.set(key, row);
+      return Response.json(row);
+    }
+    assert.equal(url.searchParams.get("tmdbId"), String(show.id));
+    assert.equal(url.searchParams.get("mediaType"), "tv");
+    const key = `${url.searchParams.get("season")}/${url.searchParams.get("episode")}`;
+    lookups.push(key);
+    return Response.json(saved.get(key) ?? null);
+  };
+  await mount(
+    createElement(SeasonDetail, {
+      tvId: show.id,
+      seasonNumber: 1,
+      initialShow: show,
+      initialData: season,
+    }),
+  );
+  const reviewButtons = [
+    ...document.querySelectorAll<HTMLButtonElement>("li button"),
+  ].filter((element) => element.textContent?.trim() === "Write a review");
+  assert.equal(reviewButtons.length, 2);
+  await act(async () => reviewButtons[0].click());
+  await waitFor(() => assert.ok(editorElement()));
+  assert.match(
+    document.querySelector("dialog[open]")?.textContent ?? "",
+    /Example show S01E01/,
+  );
+  await typeReview("The pilot is wonderful");
+  await click("Save draft");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.equal(saved.get("1/1")?.status, "draft");
+  await act(async () => reviewButtons[1].click());
+  await waitFor(() => assert.ok(editorElement()));
+  assert.equal(editorElement()?.textContent, "");
+  await typeReview("The second episode is even better");
+  await click("Publish review");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.equal(saved.get("1/2")?.status, "published");
+  await act(async () => reviewButtons[0].click());
+  await waitFor(() =>
+    assert.equal(editorElement()?.textContent, "The pilot is wonderful"),
+  );
+  await click("Publish review");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.equal(saved.get("1/1")?.status, "published");
+  assert.equal(saved.get("1/2")?.review, "The second episode is even better");
+  // Saving invalidates the active query, so duplicate lookups are expected.
+  assert.deepEqual(new Set(lookups), new Set(["1/1", "1/2"]));
+});
+
+test("episode detail edits its own review and preserves it after a failed save", async () => {
+  const ownReview = {
+    ...review,
+    tmdbId: show.id,
+    mediaType: "tv",
+    season: 1,
+    episode: 1,
+  };
+  const writes: Record<string, unknown>[] = [];
+  let failSave = true;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    if (url.pathname !== "/api/reviews") return Response.json([]);
+    if (init?.method === "PATCH") {
+      assert.equal(url.searchParams.get("id"), "7");
+      writes.push(JSON.parse(String(init.body)));
+      if (failSave)
+        return Response.json(
+          { error: "Could not save episode review" },
+          { status: 503 },
+        );
+    } else {
+      assert.equal(url.searchParams.get("season"), "1");
+      assert.equal(url.searchParams.get("episode"), "1");
+    }
+    return Response.json(ownReview);
+  };
+  await mount(
+    createElement(EpisodeDetail, {
+      tvId: show.id,
+      seasonNumber: 1,
+      episodeNumber: 1,
+      initialShow: show,
+      initialData: episode,
+    }),
+  );
+  await click("Write a review");
+  await waitFor(() =>
+    assert.equal(editorElement()?.textContent, "Saved review"),
+  );
+  await typeReview("Updated episode review");
+  await click("Update review");
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /Could not save episode review/,
+    ),
+  );
+  assert.equal(editorElement()?.textContent, "Updated episode review");
+  failSave = false;
+  await click("Update review");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.equal(writes[1].tmdbId, show.id);
+  assert.equal(writes[1].season, 1);
+  assert.equal(writes[1].episode, 1);
+});
+
+test("the review library links specials to their episode and resumes the correct draft", async () => {
+  const draft = {
+    ...review,
+    tmdbId: show.id,
+    mediaType: "tv" as const,
+    season: 0,
+    episode: 1,
+    status: "draft",
+    title: "Example show S00E01",
+    subtitle: "Special",
+    updatedAt: "2026-10-02T00:00:00Z",
+  };
+  assert.equal(reviewHref(movie), "/movie?id=603");
+  assert.equal(
+    reviewHref({ tmdbId: show.id, mediaType: "tv" }),
+    `/tv?id=${show.id}`,
+  );
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    if (url.searchParams.has("tmdbId")) {
+      assert.equal(url.searchParams.get("season"), "0");
+      assert.equal(url.searchParams.get("episode"), "1");
+      return Response.json(draft);
+    }
+    return Response.json([draft]);
+  };
+  await mount(createElement(Reviews));
+  await waitFor(() => assert.ok(document.querySelector("article")));
+  assert.match(
+    document.querySelector("article")?.textContent ?? "",
+    /TV episode/,
+  );
+  assert.equal(
+    document.querySelector("article h2 a")?.getAttribute("href"),
+    `/tv/episode?id=${show.id}&season=0&episode=1`,
+  );
+  await click("Continue writing");
+  await waitFor(() =>
+    assert.equal(editorElement()?.textContent, "Saved review"),
+  );
+});
 
 test("review load failure requires retry before editing and preserves the existing review", async () => {
   let fail = true;
@@ -158,7 +556,7 @@ test("review load failure requires retry before editing and preserves the existi
   fail = false;
   await click("Retry");
   await waitFor(() =>
-    assert.equal(document.querySelector("textarea")?.value, "Saved review"),
+    assert.equal(editorElement()?.textContent, "Saved review"),
   );
   button("Update review");
   assert.equal(
@@ -170,13 +568,16 @@ test("review load failure requires retry before editing and preserves the existi
     if (init?.method === "PATCH") request = init;
     return Response.json(review);
   };
-  document.querySelector("textarea")!.value = "Updated review";
+  await typeReview("Updated review");
   await click("Update review");
   await waitFor(() =>
     assert.equal(document.querySelector("dialog")?.open, false),
   );
   assert.equal(request?.method, "PATCH");
-  assert.equal(JSON.parse(String(request?.body)).review, "Updated review");
+  assert.equal(
+    JSON.parse(String(request?.body)).document.content[0].content[0].text,
+    "Updated review",
+  );
 });
 
 test("slow review requests remain closable and a missing session is an error, not a new review", async () => {
@@ -214,14 +615,12 @@ test("review cancellation discards drafts; save failure leaves the draft availab
       : Response.json(null);
   await mount(createElement(ReviewButton, { item: movie }));
   await click("Write a review");
-  await waitFor(() => assert.ok(document.querySelector("textarea")));
-  document.querySelector("textarea")!.value = "Unsaved draft";
+  await waitFor(() => assert.ok(editorElement()));
+  await typeReview("Unsaved draft");
   await click("Cancel");
   await click("Write a review");
-  await waitFor(() =>
-    assert.equal(document.querySelector("textarea")?.value, ""),
-  );
-  document.querySelector("textarea")!.value = "Keep this draft";
+  await waitFor(() => assert.equal(editorElement()?.textContent, ""));
+  await typeReview("Keep this draft");
   await click("Publish review");
   await waitFor(() =>
     assert.match(
@@ -229,8 +628,167 @@ test("review cancellation discards drafts; save failure leaves the draft availab
       /Try saving later/,
     ),
   );
-  assert.equal(document.querySelector("textarea")!.value, "Keep this draft");
+  assert.equal(editorElement()!.textContent, "Keep this draft");
   assert.equal(document.querySelector("dialog")?.open, true);
+});
+
+test("a rich draft survives saving, reopening and publishing without losing formatting", async () => {
+  const saved: { value: Record<string, unknown> | null } = { value: null };
+  let failSave = true;
+  const richDocument = {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "A bold opinion", marks: [{ type: "bold" }] },
+        ],
+      },
+    ],
+  };
+  globalThis.fetch = async (_url, init) => {
+    if (init?.method === "POST" || init?.method === "PATCH") {
+      if (failSave)
+        return Response.json(
+          { error: "Draft could not be saved." },
+          { status: 503 },
+        );
+      const entry = JSON.parse(String(init.body));
+      saved.value = {
+        ...movie,
+        id: 7,
+        ...entry,
+        review: "A bold opinion",
+        document: entry.document,
+        updatedAt: "2026-10-02T00:00:00Z",
+      };
+    }
+    return Response.json(saved.value);
+  };
+  await mount(createElement(ReviewButton, { item: movie }));
+  await click("Write a review");
+  await waitFor(() => assert.ok(editorElement()));
+  await typeReview("An unfinished thought");
+  await click("Save draft");
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /Draft could not/,
+    ),
+  );
+  assert.equal(editorElement()?.textContent, "An unfinished thought");
+  assert.equal(document.querySelector("dialog")?.open, true);
+  failSave = false;
+  await click("Save draft");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog")?.open, false),
+  );
+  assert.equal(saved.value!.status, "draft");
+  saved.value = Object.assign({}, saved.value, {
+    document: richDocument,
+    review: "A bold opinion",
+  });
+  client.clear();
+  await click("Write a review");
+  await waitFor(() =>
+    assert.equal(
+      editorElement()?.querySelector("strong")?.textContent,
+      "A bold opinion",
+    ),
+  );
+  await click("Publish review");
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog")?.open, false),
+  );
+  assert.equal(saved.value!.status, "published");
+  assert.deepEqual(saved.value!.document, richDocument);
+});
+
+test("reviews page filters drafts, paginates all entries, resumes and removes a draft", async () => {
+  const makeReview = (id: number, status: string) => ({
+    ...movie,
+    tmdbId: id,
+    id,
+    status,
+    title: `Review ${id}`,
+    review: "Some thoughts",
+    updatedAt: "2026-10-02T00:00:00Z",
+  });
+  let entries = Array.from({ length: 31 }, (_, index) =>
+    makeReview(index + 1, index === 30 ? "draft" : "published"),
+  );
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    if (init?.method === "DELETE") {
+      entries = entries.filter(
+        (entry) => entry.id !== Number(url.searchParams.get("id")),
+      );
+      return Response.json({ ok: true });
+    }
+    if (url.searchParams.has("tmdbId"))
+      return Response.json(
+        entries.find(
+          (entry) => entry.tmdbId === Number(url.searchParams.get("tmdbId")),
+        ) ?? null,
+      );
+    const status = url.searchParams.get("status");
+    const filtered = entries.filter(
+      (entry) => status === "all" || entry.status === status,
+    );
+    const offset = Number(url.searchParams.get("offset"));
+    return Response.json(filtered.slice(offset, offset + 30));
+  };
+  await mount(createElement(Reviews));
+  await waitFor(() =>
+    assert.equal(document.querySelectorAll("article").length, 30),
+  );
+  await click("Load more reviews");
+  await waitFor(() =>
+    assert.equal(document.querySelectorAll("article").length, 31),
+  );
+  await click("Drafts");
+  await waitFor(() =>
+    assert.equal(document.querySelectorAll("article").length, 1),
+  );
+  assert.match(
+    document.querySelector("article")?.textContent ?? "",
+    /Private draft/,
+  );
+  await click("Continue writing");
+  await waitFor(() =>
+    assert.equal(editorElement()?.textContent, "Some thoughts"),
+  );
+  await click("Delete");
+  await waitFor(() =>
+    assert.match(document.body.textContent ?? "", /No unfinished reviews/),
+  );
+  await click("Published");
+  await waitFor(() =>
+    assert.equal(document.querySelectorAll("article").length, 30),
+  );
+});
+
+test("reviews page reports a load failure and recovers through retry", async () => {
+  let fail = true;
+  globalThis.fetch = async () =>
+    fail
+      ? Response.json({ error: "Reviews are unavailable." }, { status: 503 })
+      : Response.json([]);
+  await mount(createElement(Reviews));
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /Reviews are unavailable/,
+    ),
+  );
+  fail = false;
+  await click("Retry");
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /Your next review starts here/,
+    ),
+  );
 });
 
 test("watchlist controls filter titles, separate card actions, and restore a failed removal", async () => {

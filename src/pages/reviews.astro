@@ -1,0 +1,9 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Reviews from "../components/Reviews";
+import "../styles/global.css";
+---
+
+<Layout title="Your reviews · Next Watch" noindex>
+  <Reviews client:load />
+</Layout>

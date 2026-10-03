@@ -144,10 +144,15 @@ function FavoritesList({ kind }: { kind: SaveKind }) {
           <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {visible.map((item) => {
               const mediaType = item.mediaType ?? "movie";
-              const href = mediaHref(item.href, mediaType, item.id);
+              const href = mediaHref(
+                item.href,
+                mediaType,
+                item.id,
+                item.season,
+              );
               return (
                 <MediaCard
-                  key={`${mediaType}-${item.id}`}
+                  key={`${mediaType}-${item.id}-${item.season ?? "all"}`}
                   href={href}
                   title={item.title}
                   subtitle={item.subtitle}

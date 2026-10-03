@@ -36,7 +36,7 @@ export default function StarPicker({
                 <label
                   key={rating}
                   aria-label={`${rating} of 5 stars`}
-                  className={`focus-within:outline-accent absolute inset-y-0 z-10 w-1/2 cursor-pointer rounded focus-within:outline-2 ${half ? "right-0" : "left-0"}`}
+                  className={`has-focus-visible:outline-accent absolute inset-y-0 z-10 w-1/2 cursor-pointer rounded has-focus-visible:outline-2 ${half ? "right-0" : "left-0"}`}
                 >
                   <input
                     type="radio"

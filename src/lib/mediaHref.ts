@@ -1,5 +1,23 @@
+export function validSavedSeason(season: unknown, mediaType: unknown) {
+  return (
+    season == null ||
+    (mediaType === "tv" &&
+      typeof season === "number" &&
+      Number.isInteger(season) &&
+      season >= 0 &&
+      season <= 2_147_483_647)
+  );
+}
+
 // Preserve episode/season favorites while rejecting arbitrary destinations.
-export function mediaHref(raw: unknown, mediaType: string, id: number) {
+export function mediaHref(
+  raw: unknown,
+  mediaType: string,
+  id: number,
+  season?: number | null,
+) {
+  if (season != null && validSavedSeason(season, mediaType))
+    return `/tv/season?id=${id}&season=${season}`;
   const fallback = `/${mediaType === "tv" ? "tv" : "movie"}?id=${id}`;
   if (typeof raw !== "string" || /[\\\u0000-\u0020\u007f]/.test(raw))
     return fallback;

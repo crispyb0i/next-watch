@@ -52,6 +52,7 @@ export default function FavoriteButton({
     (entry) =>
       entry.id === item.id &&
       (entry.mediaType ?? "movie") === mediaType &&
+      (entry.season ?? null) === (item.season ?? null) &&
       kindOf(entry) === kind,
   );
 

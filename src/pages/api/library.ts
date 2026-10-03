@@ -31,12 +31,13 @@ export const POST: APIRoute = async ({ request }) => {
         userId: id,
         tmdbId: item.id,
         mediaType: item.mediaType,
+        season: item.season ?? -1,
         kind: item.kind,
         title: item.title,
         poster: item.poster,
         subtitle: item.subtitle,
         rating: item.rating,
-        href: mediaHref(item.href, item.mediaType, item.id),
+        href: mediaHref(item.href, item.mediaType, item.id, item.season),
       })
       .onConflictDoNothing()
       .returning({ id: favorites.tmdbId });

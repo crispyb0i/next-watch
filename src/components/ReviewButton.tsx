@@ -1,30 +1,42 @@
-import { useId, useRef, useState } from "react";
+import { lazy, Suspense, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getJWTToken } from "../lib/auth/client";
+import { authClient, getJWTToken } from "../lib/auth/client";
 import { reviewHref, type Review, type ReviewInput } from "../lib/reviews";
 import { notify } from "../lib/notifications";
 import { requireAuth } from "../lib/auth/gate";
 import QueryProvider from "./QueryProvider";
 import StarPicker from "./StarPicker";
+import {
+  plainReviewDocument,
+  reviewDocumentText,
+  REVIEW_MAX_LENGTH,
+} from "../lib/reviewDocument";
 
-const field =
-  "bg-surface-muted/60 border-border/60 text-text-primary focus-visible:outline-accent w-full rounded-xl border px-3 py-2 text-sm focus-visible:outline-2";
+const ReviewEditor = lazy(() => import("./ReviewEditor"));
 
 type ReviewItem = Pick<
   ReviewInput,
-  "tmdbId" | "mediaType" | "title" | "poster" | "subtitle"
+  | "tmdbId"
+  | "mediaType"
+  | "season"
+  | "episode"
+  | "title"
+  | "poster"
+  | "subtitle"
 >;
 
-async function fetchOwnReview(
-  tmdbId: number,
-  mediaType: "movie" | "tv",
-): Promise<Review | null> {
+async function fetchOwnReview(item: ReviewItem): Promise<Review | null> {
   const jwt = await getJWTToken();
   if (!jwt) throw new Error("Sign in to load your review.");
-  const response = await fetch(
-    `/api/reviews?tmdbId=${tmdbId}&mediaType=${mediaType}`,
-    { headers: { authorization: `Bearer ${jwt}` } },
-  );
+  const query = new URLSearchParams({
+    tmdbId: String(item.tmdbId),
+    mediaType: item.mediaType ?? "movie",
+  });
+  if (item.season != null) query.set("season", String(item.season));
+  if (item.episode != null) query.set("episode", String(item.episode));
+  const response = await fetch(`/api/reviews?${query}`, {
+    headers: { authorization: `Bearer ${jwt}` },
+  });
   if (!response.ok) throw new Error("Couldn't load your review.");
   return response.json();
 }
@@ -88,13 +100,23 @@ function ReviewForm({
 }) {
   const queryClient = useQueryClient();
   const [rating, setRating] = useState(existing?.rating ?? 0);
+  const [document, setDocument] = useState(
+    existing?.document ?? plainReviewDocument(existing?.review ?? ""),
+  );
+  const isDraft = !existing || existing.status === "draft";
   const save = useMutation({
     mutationFn: (entry: ReviewInput) =>
       existing ? patchReview(existing.id, entry) : postReview(entry),
-    onSuccess: () => {
+    onSuccess: (_data, entry) => {
       void queryClient.invalidateQueries({ queryKey: ["reviews"] });
       onDone();
-      notify(existing ? "Review updated." : "Review published.");
+      notify(
+        entry.status === "draft"
+          ? "Draft saved. Only you can see it."
+          : isDraft
+            ? "Review published."
+            : "Review updated.",
+      );
     },
     onError: (error) => notify(error.message, "error"),
   });
@@ -103,38 +125,50 @@ function ReviewForm({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["reviews"] });
       onDone();
-      notify("Review removed.");
+      notify(
+        existing?.status === "draft" ? "Draft deleted." : "Review removed.",
+      );
     },
     onError: (error) => notify(error.message, "error"),
   });
+
+  const busy = save.isPending || remove.isPending;
+  const tooLong = reviewDocumentText(document).length > REVIEW_MAX_LENGTH;
+  const submit = (status: "draft" | "published") => {
+    if (busy || tooLong) return;
+    save.mutate({ ...item, rating: rating || null, document, status });
+  };
 
   return (
     <form
       className="mt-4 space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
-        const data = new FormData(event.currentTarget);
-        save.mutate({
-          ...item,
-          rating: rating || null,
-          review: String(data.get("review") ?? ""),
-        });
+        submit("published");
       }}
     >
-      <StarPicker value={rating} onChange={setRating} />
-
-      <label className="block">
-        <span className="text-text-muted text-xs font-semibold">
-          Your review
-        </span>
-        <textarea
-          name="review"
-          rows={5}
-          defaultValue={existing?.review ?? ""}
-          maxLength={5000}
-          className={`mt-1 ${field}`}
+      <fieldset disabled={busy}>
+        <StarPicker value={rating} onChange={setRating} />
+      </fieldset>
+      <Suspense
+        fallback={
+          <p role="status" className="text-text-muted py-8 text-sm">
+            Loading editor…
+          </p>
+        }
+      >
+        <ReviewEditor
+          initialDocument={existing?.document}
+          text={existing?.review ?? ""}
+          disabled={busy}
+          onChange={setDocument}
         />
-      </label>
+      </Suspense>
+      {isDraft && (
+        <p className="text-text-muted text-xs">
+          Drafts are only visible to you. Publish when you’re ready to share.
+        </p>
+      )}
 
       {save.isError && (
         <p role="alert" className="text-danger text-sm">
@@ -147,7 +181,7 @@ function ReviewForm({
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         {existing && (
           <button
             type="button"
@@ -161,18 +195,31 @@ function ReviewForm({
         <button
           type="button"
           onClick={onDone}
+          disabled={busy}
           className="text-text-muted hover:text-text-primary rounded-full px-4 py-2 text-sm font-semibold"
         >
           Cancel
         </button>
+        {isDraft && (
+          <button
+            type="button"
+            onClick={() => submit("draft")}
+            disabled={busy || tooLong}
+            className="border-border/60 hover:border-accent focus-visible:outline-accent rounded-full border px-4 py-2 text-sm font-semibold focus-visible:outline-2 disabled:opacity-60"
+          >
+            {save.isPending && save.variables.status === "draft"
+              ? "Saving draft…"
+              : "Save draft"}
+          </button>
+        )}
         <button
           type="submit"
-          disabled={save.isPending || remove.isPending}
+          disabled={busy || tooLong}
           className="bg-accent hover:bg-accent-hover rounded-full px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
         >
           {save.isPending
             ? "Saving…"
-            : existing
+            : !isDraft
               ? "Update review"
               : "Publish review"}
         </button>
@@ -185,18 +232,29 @@ function ReviewForm({
 function ReviewDialog({
   item,
   className = "",
+  label = "Write a review",
 }: {
   item: ReviewItem;
   className?: string;
+  label?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
   const [open, setOpen] = useState(false);
+  const { data: session } = authClient.useSession();
   const reviewQuery = useQuery({
-    queryKey: ["reviews", item.tmdbId, item.mediaType],
-    queryFn: () => fetchOwnReview(item.tmdbId, item.mediaType ?? "movie"),
+    queryKey: [
+      "reviews",
+      session?.user.id,
+      item.tmdbId,
+      item.mediaType ?? "movie",
+      item.season ?? null,
+      item.episode ?? null,
+    ],
+    queryFn: () => fetchOwnReview(item),
     enabled: open,
     retry: false,
+    staleTime: 0,
   });
 
   return (
@@ -211,14 +269,14 @@ function ReviewDialog({
         }}
         className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${className}`}
       >
-        Write a review
+        {label}
       </button>
 
       <dialog
         ref={dialog}
         aria-labelledby={headingId}
         onClose={() => setOpen(false)}
-        className="bg-surface text-text-primary border-border/60 m-auto w-[min(28rem,90vw)] rounded-2xl border p-6 backdrop:bg-black/60"
+        className="bg-surface text-text-primary border-border/60 m-auto max-h-[90dvh] w-[min(38rem,94vw)] overflow-y-auto rounded-2xl border p-5 backdrop:bg-black/60 sm:p-6"
       >
         <div className="flex items-start justify-between gap-4">
           <h2 id={headingId} className="text-lg font-extrabold tracking-tight">
@@ -236,7 +294,7 @@ function ReviewDialog({
         {item.subtitle && (
           <p className="text-text-muted mt-1 text-sm">{item.subtitle}</p>
         )}
-        {open && reviewQuery.isPending ? (
+        {open && (reviewQuery.isPending || reviewQuery.isFetching) ? (
           <p role="status" className="text-text-muted mt-4 text-sm">
             Loading your review…
           </p>
@@ -269,6 +327,7 @@ function ReviewDialog({
 export default function ReviewButton(props: {
   item: ReviewItem;
   className?: string;
+  label?: string;
 }) {
   return (
     <QueryProvider>
