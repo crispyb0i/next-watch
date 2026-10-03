@@ -8,6 +8,7 @@ import {
   stillUrl,
 } from "../lib/tmdb";
 import { episodeHref, episodeNeighbours } from "../lib/episodeNav";
+import { mediaLinks, peopleForJobs } from "../lib/mediaFacts";
 import QueryProvider from "./QueryProvider";
 import { CastGrid } from "./MediaDetail";
 import WatchLogButton from "./WatchLogButton";
@@ -15,13 +16,14 @@ import FavoriteButton from "./FavoriteButton";
 import ReviewButton from "./ReviewButton";
 import AddToListButton from "./AddToListButton";
 import { DetailSkeleton } from "./Skeleton";
+import Trailer from "./Trailer";
 
 function CrewLine({
   label,
   people,
 }: {
   label: string;
-  people: { id: number; credit_id: string; name: string }[];
+  people: { id: number; name: string }[];
 }) {
   if (people.length === 0) return null;
 
@@ -30,7 +32,7 @@ function CrewLine({
       <dt className="text-text-muted text-xs font-medium">{label}</dt>
       <dd className="text-text-primary mt-1.5 leading-6 font-semibold">
         {people.map((person, index) => (
-          <span key={person.credit_id}>
+          <span key={person.id}>
             {index > 0 && ", "}
             <a
               href={`/person?id=${person.id}`}
@@ -118,10 +120,26 @@ function EpisodeDetailInner({
   const aired =
     Boolean(episode.air_date) &&
     episode.air_date! <= new Date().toISOString().slice(0, 10);
-  const crewBy = (...jobs: string[]) =>
-    episode.crew.filter((member) => jobs.includes(member.job));
-  const directors = crewBy("Director");
-  const writers = crewBy("Writer", "Story", "Screenplay");
+  const crew = episode.credits?.crew ?? episode.crew ?? [];
+  const directors = peopleForJobs(crew, ["Director"]);
+  const writers = peopleForJobs(crew, [
+    "Writer",
+    "Story",
+    "Screenplay",
+    "Teleplay",
+  ]);
+  const crewJobs = [...new Set(crew.map((member) => member.job))]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  const links = mediaLinks(undefined, {
+    imdb_id: episode.external_ids?.imdb_id,
+  });
+  const episodeType =
+    episode.episode_type === "finale"
+      ? "Finale"
+      : episode.episode_type === "mid_season"
+        ? "Mid-season finale"
+        : null;
   const { previous, next } = episodeNeighbours(show.seasons ?? [], {
     season: episode.season_number,
     episode: episode.episode_number,
@@ -145,57 +163,96 @@ function EpisodeDetailInner({
         </a>
       </nav>
 
-      {still && (
-        <div
-          aria-hidden="true"
-          className="relative mt-6 aspect-video max-h-[28rem] overflow-hidden rounded-t-2xl"
-        >
-          <img
-            src={still}
-            alt=""
-            className="h-full w-full object-cover object-center"
-          />
-          <div className="from-surface/30 to-surface/30 absolute inset-0 bg-linear-to-r via-transparent" />
-          <div className="from-surface/0 via-surface/60 to-surface absolute inset-0 bg-linear-to-b from-35% via-70% to-100%" />
-        </div>
-      )}
+      <header
+        className={
+          still
+            ? "relative mt-6 grid min-h-[22rem] max-w-3xl items-end overflow-hidden rounded-t-2xl sm:aspect-[17/10]"
+            : "mt-8"
+        }
+      >
+        {still && (
+          <div aria-hidden="true" className="absolute inset-0">
+            <img
+              src={still}
+              alt=""
+              className="h-full w-full object-cover object-center"
+            />
+            <div className="from-surface/30 to-surface/30 absolute inset-0 bg-linear-to-r via-transparent" />
+            <div className="from-surface/0 via-surface/80 to-surface absolute inset-0 bg-linear-to-b from-30% via-65% to-100%" />
+          </div>
+        )}
 
-      <div className={still ? "relative z-10 -mt-10 sm:-mt-20" : "mt-8"}>
-        <p className="text-accent-hover font-mono text-sm font-semibold">
-          {code}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-          <h1 className="text-text-primary min-w-0 text-[38px] leading-[1.08] font-black tracking-tight text-balance md:text-[42px] lg:text-[44px]">
-            {episode.name}
-          </h1>
-          {episode.vote_average > 0 && (
-            <span
-              className="text-star inline-flex shrink-0 items-center gap-1.5 text-lg leading-none font-semibold"
-              title="TMDB rating"
-            >
-              <span aria-hidden="true">★</span>
-              <span className="sr-only">TMDB rating: </span>
-              <span>
-                {(episode.vote_average / 2).toFixed(1)}
-                <span className="text-text-muted ml-0.5 text-xs font-normal">
-                  /5
+        <div className={still ? "relative z-10 pt-36 pb-5" : "pb-5"}>
+          <p className="text-accent-hover font-mono text-sm font-semibold">
+            {code}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <h1 className="text-text-primary min-w-0 text-[38px] leading-[1.08] font-black tracking-tight text-balance md:text-[42px] lg:text-[44px]">
+              {episode.name}
+            </h1>
+            {episode.vote_average > 0 && (
+              <span
+                className="text-star inline-flex shrink-0 items-center gap-1.5 text-lg leading-none font-semibold"
+                title="TMDB rating"
+              >
+                <span aria-hidden="true">★</span>
+                <span className="sr-only">TMDB rating: </span>
+                <span>
+                  {(episode.vote_average / 2).toFixed(1)}
+                  <span className="text-text-muted ml-0.5 text-xs font-normal">
+                    /5
+                  </span>
                 </span>
+                {episode.vote_count > 0 && (
+                  <span className="text-text-muted text-xs font-normal">
+                    ({episode.vote_count.toLocaleString("en-US")} vote
+                    {episode.vote_count === 1 ? "" : "s"})
+                  </span>
+                )}
               </span>
-            </span>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="text-text-muted mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-          {episode.air_date && (
-            <time dateTime={episode.air_date}>{episode.air_date}</time>
-          )}
-          {episode.runtime && <span>{episode.runtime} min</span>}
+          <div className="text-text-muted mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+            {episode.air_date && (
+              <time dateTime={episode.air_date}>
+                {new Date(`${episode.air_date}T00:00:00Z`).toLocaleDateString(
+                  "en-US",
+                  {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  },
+                )}
+              </time>
+            )}
+            {episode.runtime && <span>{episode.runtime} min</span>}
+            {episodeType && (
+              <span className="bg-accent/15 text-accent-hover rounded-full px-2.5 py-1 text-xs font-semibold">
+                {episodeType}
+              </span>
+            )}
+            {links.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-accent underline underline-offset-4"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
         </div>
+      </header>
 
+      <div>
         <div
           role="group"
           aria-label="Episode actions"
-          className="mt-5 flex flex-wrap items-center gap-2"
+          className="flex flex-wrap items-center gap-2"
         >
           {/* The episode's own TMDB id, so favoriting an episode never collides
             with favoriting its show. */}
@@ -255,25 +312,64 @@ function EpisodeDetailInner({
         </div>
 
         {episode.overview && (
-          <div className="mt-6 max-w-[700px]">
+          <div className="mt-7 max-w-[700px]">
             <h2 className="text-text-primary text-lg font-extrabold tracking-tight">
               Overview
             </h2>
-            <p className="text-text-muted mt-2.5 text-[15px] leading-8">
+            <p className="text-text-muted mt-3 text-[15px] leading-8">
               {episode.overview}
             </p>
           </div>
         )}
 
-        {(directors.length > 0 || writers.length > 0) && (
-          <dl className="border-border/50 bg-surface-muted/50 mt-6 grid max-w-[700px] gap-5 rounded-2xl border p-5 text-sm sm:grid-cols-2">
+        {(directors.length > 0 ||
+          writers.length > 0 ||
+          episode.production_code?.trim()) && (
+          <dl className="mt-6 flex max-w-[700px] flex-wrap gap-x-10 gap-y-4 text-sm">
             <CrewLine label="Director" people={directors} />
             <CrewLine label="Writers" people={writers} />
+            {episode.production_code?.trim() && (
+              <div>
+                <dt className="text-text-muted text-xs font-medium">
+                  Production code
+                </dt>
+                <dd className="text-text-primary mt-1.5 font-semibold">
+                  {episode.production_code}
+                </dd>
+              </div>
+            )}
           </dl>
         )}
       </div>
 
-      <CastGrid cast={episode.guest_stars} title="Guest stars" />
+      <CastGrid cast={episode.credits?.cast ?? []} expandable />
+      <CastGrid
+        cast={episode.credits?.guest_stars ?? episode.guest_stars ?? []}
+        title="Guest stars"
+        expandable
+      />
+
+      {crewJobs.length > 0 && (
+        <section className="mt-14" aria-labelledby="episode-crew-heading">
+          <h2
+            id="episode-crew-heading"
+            className="text-text-primary text-xl font-extrabold tracking-tight"
+          >
+            Crew
+          </h2>
+          <dl className="border-border/50 bg-surface-muted/50 mt-6 grid gap-5 rounded-2xl border p-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            {crewJobs.map((job) => (
+              <CrewLine
+                key={job}
+                label={job}
+                people={peopleForJobs(crew, [job])}
+              />
+            ))}
+          </dl>
+        </section>
+      )}
+
+      <Trailer videos={episode.videos?.results} />
 
       <nav
         aria-label="Episode navigation"

@@ -80,8 +80,17 @@ export interface SeasonDetails extends Season {
 
 export interface EpisodeDetails extends Episode {
   vote_count: number;
+  episode_type?: string;
+  production_code?: string | null;
   guest_stars: CastMember[];
   crew: { id: number; credit_id: string; name: string; job: string }[];
+  credits?: {
+    cast?: CastMember[];
+    crew?: CrewMember[];
+    guest_stars?: CastMember[];
+  };
+  external_ids?: ExternalIds;
+  videos?: { results: Video[] };
 }
 
 export interface TvShowDetails extends TvShow {
@@ -397,7 +406,7 @@ export async function getEpisodeDetails(
 ): Promise<EpisodeDetails> {
   return tmdbFetch<EpisodeDetails>(
     `/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`,
-    {},
+    { append_to_response: "credits,external_ids,videos" },
     signal,
   );
 }

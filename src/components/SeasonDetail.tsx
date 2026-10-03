@@ -43,7 +43,7 @@ function EpisodeRow({
       {/* `self-start` keeps the 16:9 box from stretching to the row height. */}
       <a
         href={href}
-        className="bg-surface-muted border-border/60 hover:border-accent block w-full shrink-0 self-start overflow-hidden rounded-xl border transition sm:w-44"
+        className="bg-surface-muted border-border/60 hover:border-accent block w-full shrink-0 self-start overflow-hidden rounded-xl border transition sm:w-56 lg:w-64"
       >
         {still ? (
           <img
@@ -194,8 +194,8 @@ function SeasonDetailInner({
         ← {show.name}
       </a>
 
-      <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start">
-        <div className="bg-surface-muted border-border/60 w-32 shrink-0 overflow-hidden rounded-2xl border sm:w-40">
+      <div className="mt-4 flex flex-col gap-7 md:flex-row md:items-start md:gap-8">
+        <div className="bg-surface-muted shadow-card border-border/60 w-52 max-w-full shrink-0 overflow-hidden rounded-2xl border sm:w-60 md:w-[280px]">
           {poster ? (
             <ImageViewer
               src={poster}
@@ -214,7 +214,7 @@ function SeasonDetailInner({
 
         <div className="min-w-0">
           <h1 className="text-text-primary text-3xl font-black tracking-tighter">
-            {season.name}
+            {seasonTitle}
           </h1>
           <p className="text-text-muted mt-2 flex flex-wrap gap-x-3 text-sm">
             {season.air_date && <span>{season.air_date.slice(0, 4)}</span>}

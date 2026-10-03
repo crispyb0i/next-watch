@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { CastMember } from "../lib/tmdb";
 import { profileUrl, userRegion } from "../lib/tmdb";
 import ImageViewer from "./ImageViewer";
@@ -37,10 +37,14 @@ export function parseSeasonNumber(raw: string | null): number | null {
 export function CastGrid({
   cast,
   title = "Cast",
+  expandable = false,
 }: {
   cast: CastMember[];
   title?: string;
+  expandable?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const listId = useId();
   if (cast.length === 0) return null;
 
   return (
@@ -48,11 +52,27 @@ export function CastGrid({
       <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
         {title}
       </h2>
-      <ul className="mt-6 grid grid-cols-3 gap-5 sm:grid-cols-4 md:grid-cols-6">
-        {cast.slice(0, 12).map((member) => (
+      <ul
+        id={listId}
+        className="mt-6 grid grid-cols-3 gap-5 sm:grid-cols-4 md:grid-cols-6"
+      >
+        {(expandable && expanded ? cast : cast.slice(0, 12)).map((member) => (
           <CastCard key={member.id} member={member} />
         ))}
       </ul>
+      {expandable && cast.length > 12 && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={listId}
+          onClick={() => setExpanded(!expanded)}
+          className="text-accent hover:text-accent-hover mt-5 text-sm font-semibold"
+        >
+          {expanded
+            ? `Show fewer ${title.toLowerCase()}`
+            : `Show all ${title.toLowerCase()} (${cast.length})`}
+        </button>
+      )}
     </div>
   );
 }

@@ -65,6 +65,12 @@ for five minutes. The in-process cache is bounded; production API responses also
 advertise a CDN cache policy. Movie, TV, person, season, and episode pages receive
 server-rendered initial content and canonical/social metadata.
 
+Episode details also request episode credits, external IDs, and videos. Pages
+show expandable cast and guest lists, crew roles linked to people, rating vote
+counts, finale labels, production codes, IMDb links, and trailers when available.
+Missing optional data is omitted; base episode crew and guests remain available
+when appended credits are missing.
+
 Production Vite caches are isolated from development caches so a build can run
 while the development server remains active. Start development with
 `npx astro dev --background`; manage it with `npx astro dev status`,
