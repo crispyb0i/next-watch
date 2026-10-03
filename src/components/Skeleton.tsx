@@ -1,10 +1,16 @@
 /** Shared loading shapes — same grid/spacing as the real content, so the
  *  swap never shifts layout. */
 
-export function PosterGridSkeleton({ count = 10 }: { count?: number }) {
+export function PosterGridSkeleton({
+  count = 10,
+  className = "mt-6",
+}: {
+  count?: number;
+  className?: string;
+}) {
   return (
     <ul
-      className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+      className={`${className} grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`}
       aria-hidden="true"
     >
       {Array.from({ length: count }, (_, index) => (

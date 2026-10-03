@@ -1,9 +1,12 @@
 ---
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import Reviews from "../components/Reviews";
 import "../styles/global.css";
 ---
 
 <Layout title="Your reviews · Next Watch" noindex>
-  <Reviews client:load />
+  <TabView page="reviews" client:only="react" transition:persist="tab-content">
+    <Reviews slot="fallback" />
+  </TabView>
 </Layout>

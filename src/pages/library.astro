@@ -1,9 +1,12 @@
 ---
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import LibraryTransfer from "../components/LibraryTransfer";
 import "../styles/global.css";
 ---
 
 <Layout title="Import and export — Next Watch" noindex>
-  <LibraryTransfer client:load />
+  <TabView page="library" client:only="react" transition:persist="tab-content">
+    <LibraryTransfer slot="fallback" />
+  </TabView>
 </Layout>

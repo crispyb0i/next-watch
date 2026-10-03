@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useGroupImage } from "./ImageGroup";
 
 export default function MediaCard({
   href,
@@ -16,8 +15,6 @@ export default function MediaCard({
   rating?: number | null;
   actions?: ReactNode;
 }) {
-  const { ready, onSettled } = useGroupImage(Boolean(poster));
-
   return (
     <li className="group relative">
       <a href={href} className="block">
@@ -30,16 +27,7 @@ export default function MediaCard({
               height={300}
               loading="lazy"
               decoding="async"
-              // Browser-cached posters are already `complete` before `load`
-              // fires, so settle them here or a re-filter flashes skeletons.
-              ref={(node) => {
-                if (node?.complete) onSettled();
-              }}
-              onLoad={onSettled}
-              onError={onSettled}
-              className={`h-full w-full object-cover transition duration-500 group-hover:scale-105 ${
-                ready ? "opacity-100" : "opacity-0"
-              }`}
+              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
             />
           ) : (
             <div className="text-text-muted flex h-full w-full items-center justify-center px-3 text-center text-sm">
@@ -47,25 +35,13 @@ export default function MediaCard({
             </div>
           )}
 
-          {!ready && poster && (
-            <div className="bg-surface-muted/60 absolute inset-0 animate-pulse" />
-          )}
-
           {rating != null && rating > 0 && (
-            <span
-              className={`text-star absolute top-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold backdrop-blur transition-opacity duration-500 ${
-                ready ? "opacity-100" : "opacity-0"
-              }`}
-            >
+            <span className="text-star absolute top-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold backdrop-blur">
               ★ {rating.toFixed(1)}
             </span>
           )}
 
-          <div
-            className={`absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-3 pt-10 transition-opacity duration-500 ${
-              ready ? "opacity-100" : "opacity-0"
-            }`}
-          >
+          <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-3 pt-10">
             <p className="line-clamp-2 text-sm font-semibold text-white">
               {title}
             </p>

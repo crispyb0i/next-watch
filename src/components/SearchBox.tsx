@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { navigate } from "astro:transitions/client";
 import {
   searchPage,
   posterUrl,
@@ -99,6 +100,22 @@ export function SearchBox({
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const suggestionsId = useId();
   useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
+  useEffect(() => {
+    // The navbar survives navigation; dismiss its transient suggestions.
+    const closeSuggestions = () => {
+      setSuggestionsOpen(false);
+      setActiveSuggestion(-1);
+    };
+    document.addEventListener("astro:before-preparation", closeSuggestions);
+    return () =>
+      document.removeEventListener(
+        "astro:before-preparation",
+        closeSuggestions,
+      );
+  }, []);
+  useEffect(() => {
     const timeout = window.setTimeout(() => {
       setSuggestionQuery(query.trim());
     }, 250);
@@ -184,7 +201,10 @@ export function SearchBox({
       role="search"
       onSubmit={(event) => {
         event.preventDefault();
-        location.href = `/search?${new URLSearchParams({ q: query.trim(), tab: query.trim().startsWith("@") ? "users" : tab })}`;
+        setSuggestionsOpen(false);
+        void navigate(
+          `/search?${new URLSearchParams({ q: query.trim(), tab: query.trim().startsWith("@") ? "users" : tab })}`,
+        );
       }}
       action="/search"
       method="get"
@@ -196,6 +216,11 @@ export function SearchBox({
         }
       }}
     >
+      <input
+        type="hidden"
+        name="tab"
+        value={query.trim().startsWith("@") ? "users" : tab}
+      />
       <span
         className={`group-focus-within:text-accent pointer-events-none absolute inset-y-0 z-10 flex items-center transition ${compact ? "text-text-primary left-3" : "text-text-muted left-4 sm:left-5"}`}
       >
@@ -233,7 +258,8 @@ export function SearchBox({
             suggestions[activeSuggestion]
           ) {
             event.preventDefault();
-            window.location.href = suggestions[activeSuggestion].href;
+            setSuggestionsOpen(false);
+            void navigate(suggestions[activeSuggestion].href);
           }
         }}
         role="combobox"

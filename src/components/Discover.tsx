@@ -11,7 +11,6 @@ import {
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaCard from "./MediaCard";
-import ImageGroup from "./ImageGroup";
 import { PosterGridSkeleton } from "./Skeleton";
 import { FilterButton, FilterGroup } from "./FilterButton";
 
@@ -100,40 +99,36 @@ function DiscoverInner() {
         </p>
       )}
 
-      {isPending && <PosterGridSkeleton />}
+      {isPending && <PosterGridSkeleton count={20} />}
 
       {items && items.length === 0 && !isPending && (
         <p className="text-text-muted mt-6 text-sm">Nothing here right now.</p>
       )}
 
-      {/* ImageGroup is deliberately un-keyed: remounting it resets the reveal
-          state and flashes skeletons over posters the browser already cached. */}
       {items && items.length > 0 && (
-        <ImageGroup>
-          <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {items.map((item) =>
-              "title" in item ? (
-                <MediaCard
-                  key={item.id}
-                  href={`/movie?id=${item.id}`}
-                  title={item.title}
-                  subtitle={item.release_date?.slice(0, 4)}
-                  poster={posterUrl(item.poster_path)}
-                  rating={item.vote_average}
-                />
-              ) : (
-                <MediaCard
-                  key={item.id}
-                  href={`/tv?id=${item.id}`}
-                  title={item.name}
-                  subtitle={item.first_air_date?.slice(0, 4)}
-                  poster={posterUrl(item.poster_path)}
-                  rating={item.vote_average}
-                />
-              ),
-            )}
-          </ul>
-        </ImageGroup>
+        <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {items.map((item) =>
+            "title" in item ? (
+              <MediaCard
+                key={item.id}
+                href={`/movie?id=${item.id}`}
+                title={item.title}
+                subtitle={item.release_date?.slice(0, 4)}
+                poster={posterUrl(item.poster_path)}
+                rating={item.vote_average}
+              />
+            ) : (
+              <MediaCard
+                key={item.id}
+                href={`/tv?id=${item.id}`}
+                title={item.name}
+                subtitle={item.first_air_date?.slice(0, 4)}
+                poster={posterUrl(item.poster_path)}
+                rating={item.vote_average}
+              />
+            ),
+          )}
+        </ul>
       )}
     </div>
   );

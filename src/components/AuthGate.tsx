@@ -7,13 +7,19 @@ import { PosterGridSkeleton } from "./Skeleton";
  * Account-only pages: render children when signed in, otherwise replace the
  * history entry with the sign-in page so Back doesn't bounce back here.
  */
-export default function AuthGate({ children }: { children: ReactNode }) {
+export default function AuthGate({
+  children,
+  fallback = <PosterGridSkeleton />,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
   const { data: session, isPending } = authClient.useSession();
 
   useEffect(() => {
     if (!isPending && !session) location.replace(signInHref());
   }, [isPending, session]);
 
-  if (isPending || !session) return <PosterGridSkeleton />;
+  if (isPending || !session) return <>{fallback}</>;
   return <>{children}</>;
 }

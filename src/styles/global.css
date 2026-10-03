@@ -107,7 +107,9 @@
 @layer base {
   html {
     color-scheme: dark light;
-    scroll-behavior: smooth;
+    background-color: var(--color-surface);
+    /* Keep content centered when navigating between short and long pages. */
+    scrollbar-gutter: stable;
   }
 
   ::selection {
@@ -141,6 +143,18 @@
   input[type="date"]::-webkit-calendar-picker-indicator:focus-visible {
     opacity: 1;
     background: color-mix(in oklch, var(--color-accent) 25%, transparent);
+  }
+}
+
+/* Honor reduced motion for loading placeholders and hover treatments too. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

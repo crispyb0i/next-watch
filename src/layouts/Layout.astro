@@ -23,10 +23,10 @@ for (const key of ["id", "season", "episode"]) {
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" transition:animate="none">
   <head>
     <meta charset="utf-8" />
-    <ClientRouter />
+    <ClientRouter fallback="swap" />
     <meta name="viewport" content="width=device-width" />
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -48,7 +48,7 @@ for (const key of ["id", "season", "episode"]) {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional"
       rel="stylesheet"
     />
   </head>
@@ -62,7 +62,7 @@ for (const key of ["id", "season", "episode"]) {
       ></div>
     </div>
     <Navbar />
-    <ToastHost client:load />
+    <ToastHost client:load transition:persist="notifications" />
     <Container>
       <slot />
     </Container>

@@ -1,11 +1,12 @@
 ---
-import Welcome from "../components/Welcome.astro";
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
-import Trending from "../components/Trending.tsx";
+import Home from "../components/Home";
 import "../styles/global.css";
 ---
 
 <Layout>
-  <Welcome />
-  <Trending client:load />
+  <TabView page="home" client:only="react" transition:persist="tab-content">
+    <Home slot="fallback" />
+  </TabView>
 </Layout>

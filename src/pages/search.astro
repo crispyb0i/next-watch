@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import Search from "../components/Search.tsx";
 import "../styles/global.css";
@@ -20,5 +21,19 @@ const q = Astro.url.searchParams.get("q")?.trim().slice(0, 200) ?? "";
 ---
 
 <Layout title={q ? `Search: ${q} — Next Watch` : "Search — Next Watch"} noindex>
-  <Search client:load initialQuery={q} initialTab={tab} initialPage={page} />
+  <TabView
+    page="search"
+    client:only="react"
+    transition:persist="tab-content"
+    initialQuery={q}
+    initialTab={tab}
+    initialPage={page}
+  >
+    <Search
+      slot="fallback"
+      initialQuery={q}
+      initialTab={tab}
+      initialPage={page}
+    />
+  </TabView>
 </Layout>

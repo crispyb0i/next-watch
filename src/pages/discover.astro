@@ -1,9 +1,12 @@
 ---
+import TabView from "../components/TabView";
 import Layout from "../layouts/Layout.astro";
 import Discover from "../components/Discover.tsx";
 import "../styles/global.css";
 ---
 
 <Layout>
-  <Discover client:load />
+  <TabView page="discover" client:only="react" transition:persist="tab-content">
+    <Discover slot="fallback" />
+  </TabView>
 </Layout>
