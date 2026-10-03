@@ -672,6 +672,180 @@ test("season rows save and reopen separate episode reviews without sharing cache
   assert.deepEqual(new Set(lookups), new Set(["1/1", "1/2"]));
 });
 
+test("episode credits expand cast and guests independently, link people and preserve every crew role", async () => {
+  globalThis.fetch = async () => Response.json([]);
+  const cast = Array.from({ length: 13 }, (_, index) => ({
+    id: 100 + index,
+    name: `Actor ${index + 1}`,
+    character: `Character ${index + 1}`,
+    profile_path: null,
+  }));
+  const guests = cast.map((member) => ({
+    ...member,
+    id: member.id + 100,
+    name: `Guest ${member.name}`,
+  }));
+  await mount(
+    createElement(EpisodeDetail, {
+      tvId: show.id,
+      seasonNumber: 1,
+      episodeNumber: 1,
+      initialShow: show,
+      initialData: {
+        ...episode,
+        episode_type: "finale",
+        production_code: "101",
+        vote_count: 1234,
+        credits: {
+          cast,
+          guest_stars: guests,
+          crew: [
+            { id: 301, name: "Alex Writer", job: "Writer" },
+            { id: 301, name: "Alex Writer", job: "Teleplay" },
+            { id: 302, name: "Sam Editor", job: "Editor" },
+            { id: 302, name: "Sam Editor", job: "Editor" },
+          ],
+        },
+        external_ids: { imdb_id: "tt12345" },
+        videos: {
+          results: [
+            {
+              id: "preview",
+              key: "abcdefghijk",
+              name: "Episode preview",
+              site: "YouTube",
+              type: "Teaser",
+              official: true,
+              published_at: "2020-01-01T00:00:00Z",
+            },
+          ],
+        },
+      },
+    }),
+  );
+  assert.equal(document.querySelector('a[href="/person?id=112"]'), null);
+  const castButton = button("Show all cast (13)");
+  const castList = document.getElementById(
+    castButton.getAttribute("aria-controls")!,
+  );
+  assert.equal(castList?.children.length, 12);
+  assert.equal(castButton.getAttribute("aria-expanded"), "false");
+  await click("Show all cast (13)");
+  assert.equal(castList?.children.length, 13);
+  assert.equal(castButton.getAttribute("aria-expanded"), "true");
+  assert.match(
+    document.querySelector('a[href="/person?id=112"]')?.textContent ?? "",
+    /Character 13/,
+  );
+  assert.equal(document.querySelector('a[href="/person?id=212"]'), null);
+  await click("Show all guest stars (13)");
+  assert.ok(document.querySelector('a[href="/person?id=212"]'));
+  await click("Show fewer cast");
+  assert.equal(castList?.children.length, 12);
+  assert.ok(document.querySelector('a[href="/person?id=212"]'));
+
+  const writers = [...document.querySelectorAll("dt")].find(
+    (term) => term.textContent === "Writers",
+  );
+  assert.equal(writers?.nextElementSibling?.textContent, "Alex Writer");
+  const crew = document.querySelector(
+    '[aria-labelledby="episode-crew-heading"]',
+  );
+  assert.deepEqual(
+    [...crew!.querySelectorAll("dt")].map((term) => term.textContent),
+    ["Editor", "Teleplay", "Writer"],
+  );
+  assert.equal(crew?.querySelectorAll('a[href="/person?id=302"]').length, 1);
+  assert.match(document.body.textContent ?? "", /1,234 votes/);
+  assert.match(document.body.textContent ?? "", /Finale/);
+  assert.match(document.body.textContent ?? "", /Production code101/);
+  assert.ok(
+    document.querySelector('a[href="https://www.imdb.com/title/tt12345/"]'),
+  );
+  assert.equal(document.querySelector("iframe"), null);
+  await click("Play trailer: Episode preview");
+  assert.equal(document.querySelector("iframe")?.title, "Episode preview");
+});
+
+test("episode credits fall back to base guests and crew when appended data is unavailable", async () => {
+  globalThis.fetch = async () => Response.json([]);
+  await mount(
+    createElement(EpisodeDetail, {
+      tvId: show.id,
+      seasonNumber: 1,
+      episodeNumber: 1,
+      initialShow: show,
+      initialData: {
+        ...episode,
+        episode_type: "mid_season",
+        vote_count: 1,
+        guest_stars: [
+          {
+            id: 401,
+            name: "Guest actor",
+            character: "Visitor",
+            profile_path: null,
+          },
+        ],
+        crew: [
+          {
+            id: 402,
+            credit_id: "director",
+            name: "Episode director",
+            job: "Director",
+          },
+        ],
+        external_ids: { imdb_id: "javascript:alert(1)" },
+      },
+    }),
+  );
+  assert.ok(document.querySelector('a[href="/person?id=401"]'));
+  assert.ok(document.querySelector('a[href="/person?id=402"]'));
+  const headings = [...document.querySelectorAll("h2")].map(
+    (heading) => heading.textContent,
+  );
+  assert.ok(headings.includes("Guest stars"));
+  assert.ok(headings.includes("Crew"));
+  assert.ok(!headings.includes("Cast"));
+  assert.ok(!headings.includes("Trailer"));
+  assert.match(document.body.textContent ?? "", /1 vote\)/);
+  assert.match(document.body.textContent ?? "", /Mid-season finale/);
+  assert.ok(!document.querySelector('a[href*="imdb.com"]'));
+});
+
+test("sparse episode details omit empty credits and optional metadata", async () => {
+  globalThis.fetch = async () => Response.json([]);
+  await mount(
+    createElement(EpisodeDetail, {
+      tvId: show.id,
+      seasonNumber: 1,
+      episodeNumber: 1,
+      initialShow: show,
+      initialData: {
+        ...episode,
+        vote_average: 0,
+        vote_count: 0,
+        episode_type: "standard",
+        production_code: "   ",
+        credits: { cast: [], crew: [], guest_stars: [] },
+        videos: { results: [] },
+      },
+    }),
+  );
+  assert.equal(document.querySelector("h1")?.textContent, "Pilot");
+  assert.deepEqual(
+    [...document.querySelectorAll("h2")]
+      .filter((heading) => !heading.closest("dialog"))
+      .map((heading) => heading.textContent),
+    ["Overview"],
+  );
+  assert.equal(document.querySelector("dl"), null);
+  assert.doesNotMatch(
+    document.body.textContent ?? "",
+    /TMDB rating|votes|Finale|IMDb|Production code/,
+  );
+});
+
 test("episode detail edits its own review and preserves it after a failed save", async () => {
   const ownReview = {
     ...review,
