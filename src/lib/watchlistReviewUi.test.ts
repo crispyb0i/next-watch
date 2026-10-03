@@ -16,9 +16,11 @@ const auth = {
   userId: "test-user" as string | null,
   pending: false,
 };
+const redirects: string[] = [];
 Object.assign(globalThis, {
   window: dom.window,
   document: dom.window.document,
+  location: { replace: (href: string) => redirects.push(href) },
   localStorage: dom.window.localStorage,
   CustomEvent: dom.window.CustomEvent,
   FormData: dom.window.FormData,
@@ -86,6 +88,7 @@ const { createRoot } = await import("react-dom/client");
 const { default: ReviewButton } =
   await import("../components/ReviewButton.tsx");
 const { default: Reviews } = await import("../components/Reviews.tsx");
+const { default: Watched } = await import("../components/Watched.tsx");
 const { default: Lists } = await import("../components/Lists.tsx");
 const { default: AddToListButton } =
   await import("../components/AddToListButton.tsx");
@@ -169,7 +172,13 @@ async function typeReview(text: string) {
   });
 }
 const movie = { tmdbId: 603, mediaType: "movie" as const, title: "The Matrix" };
-const review = { ...movie, id: 7, rating: 4, review: "Saved review" };
+const review = {
+  ...movie,
+  id: 7,
+  userId: "test-user",
+  rating: 4,
+  review: "Saved review",
+};
 const episode = {
   id: 9001,
   season_number: 1,
@@ -220,9 +229,223 @@ afterEach(async () => {
   auth.token = "test-token";
   auth.userId = "test-user";
   auth.pending = false;
+  redirects.length = 0;
   _resetForTest([]);
 });
 after(() => dom.window.close());
+
+const watchedEpisode = {
+  id: 401,
+  tmdbId: 97546,
+  mediaType: "tv",
+  season: 4,
+  episode: 2,
+  title: "Ted Lasso",
+  subtitle: "S04E02 · Curiouser and Curiouser!",
+  poster: null,
+  notes: "A memorable episode.\nWorth watching again.",
+  watchedOn: "2024-05-01",
+};
+const watchedOptions = `Options for ${watchedEpisode.title}, ${watchedEpisode.subtitle}`;
+
+test("watch-log titles link to movies and episodes and action menus support keyboard and dismissal", async () => {
+  globalThis.fetch = async (input) => {
+    assert.equal(
+      new URL(String(input), "https://next-watch.test").pathname,
+      "/api/watched",
+    );
+    return Response.json([
+      watchedEpisode,
+      {
+        id: 402,
+        tmdbId: 27205,
+        mediaType: "movie",
+        title: "Inception",
+        watchedOn: "2024-05-01",
+      },
+    ]);
+  };
+  await mount(createElement(Watched));
+  await waitFor(() =>
+    assert.ok(
+      document.querySelector(
+        'a[href="/tv/episode?id=97546&season=4&episode=2"]',
+      ),
+    ),
+  );
+  const episodeLink = document.querySelector<HTMLAnchorElement>(
+    'a[href="/tv/episode?id=97546&season=4&episode=2"]',
+  )!;
+  assert.match(episodeLink.textContent ?? "", /Ted Lasso.*S04E02/s);
+  assert.equal(
+    document.querySelector('a[href="/movie?id=27205"]')?.textContent,
+    "Inception",
+  );
+  assert.ok(document.body.textContent?.includes(watchedEpisode.notes));
+  assert.equal(document.querySelector("details"), null);
+  assert.equal(document.querySelector('[role="menu"]'), null);
+
+  await click(watchedOptions);
+  assert.deepEqual(
+    [...document.querySelectorAll('[role="menuitem"]')].map(
+      (item) => item.textContent,
+    ),
+    ["Edit", "Delete"],
+  );
+  assert.equal(document.activeElement?.textContent, "Edit");
+  async function press(key: string) {
+    await act(async () => {
+      document.activeElement?.dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", {
+          key,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+  }
+  await press("ArrowDown");
+  assert.equal(document.activeElement?.textContent, "Delete");
+  await press("ArrowDown");
+  assert.equal(document.activeElement?.textContent, "Edit");
+  await press("End");
+  assert.equal(document.activeElement?.textContent, "Delete");
+  await press("Home");
+  assert.equal(document.activeElement?.textContent, "Edit");
+  await press("Escape");
+  assert.equal(document.querySelector('[role="menu"]'), null);
+  assert.equal(document.activeElement, button(watchedOptions));
+  assert.equal(button(watchedOptions).getAttribute("aria-expanded"), "false");
+
+  await press("ArrowUp");
+  assert.equal(document.activeElement?.textContent, "Delete");
+  await act(async () => episodeLink.focus());
+  assert.equal(document.querySelector('[role="menu"]'), null);
+  await click(watchedOptions);
+  await act(async () =>
+    document.body.dispatchEvent(
+      new dom.window.MouseEvent("pointerdown", { bubbles: true }),
+    ),
+  );
+  assert.equal(document.querySelector('[role="menu"]'), null);
+
+  await click(watchedOptions);
+  await click("Options for Inception");
+  assert.equal(document.querySelectorAll('[role="menu"]').length, 1);
+  assert.equal(button(watchedOptions).getAttribute("aria-expanded"), "false");
+});
+
+test("watch-log Edit retains episode context and failed drafts, then saves and restores focus", async () => {
+  const writes: Record<string, unknown>[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    assert.equal(url.pathname, "/api/watched");
+    if (init?.method === "PATCH") {
+      assert.equal(url.searchParams.get("id"), String(watchedEpisode.id));
+      writes.push(JSON.parse(String(init.body)));
+      return writes.length === 1
+        ? Response.json({ error: "Could not update watch." }, { status: 503 })
+        : Response.json({ ok: true });
+    }
+    return Response.json([watchedEpisode]);
+  };
+  await mount(createElement(Watched));
+  await waitFor(() => assert.ok(button(watchedOptions)));
+  await click(watchedOptions);
+  await click("Edit");
+  const dialog = document.querySelector<HTMLDialogElement>("dialog[open]")!;
+  assert.ok(dialog);
+  assert.equal(document.querySelector('[role="menu"]'), null);
+  assert.equal(dialog.querySelector("h2")?.textContent, "Edit “Ted Lasso”");
+  assert.equal(
+    document.getElementById(dialog.getAttribute("aria-describedby")!)
+      ?.textContent,
+    watchedEpisode.subtitle,
+  );
+  const notes = dialog.querySelector<HTMLTextAreaElement>(
+    'textarea[name="notes"]',
+  )!;
+  notes.value = "Updated watch notes";
+  async function submit() {
+    await act(async () =>
+      dialog
+        .querySelector("form")!
+        .dispatchEvent(
+          new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+        ),
+    );
+  }
+  await submit();
+  await waitFor(() =>
+    assert.match(dialog.textContent ?? "", /Could not update watch/),
+  );
+  assert.ok(dialog.open);
+  assert.equal(notes.value, "Updated watch notes");
+  assert.equal(writes[0].season, 4);
+  assert.equal(writes[0].episode, 2);
+  assert.equal(writes[0].notes, "Updated watch notes");
+  await submit();
+  await waitFor(() => assert.equal(dialog.open, false));
+  assert.equal(writes.length, 2);
+  assert.equal(document.activeElement, button(watchedOptions));
+
+  await click(watchedOptions);
+  await click("Edit");
+  assert.equal(
+    dialog.querySelector<HTMLTextAreaElement>('textarea[name="notes"]')?.value,
+    watchedEpisode.notes,
+  );
+  await click("Cancel");
+  assert.equal(dialog.open, false);
+  assert.equal(document.activeElement, button(watchedOptions));
+});
+
+test("watch-log Delete requires confirmation and allows retry after a failed deletion", async () => {
+  let attempts = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    assert.equal(url.pathname, "/api/watched");
+    if (init?.method === "DELETE") {
+      assert.equal(url.searchParams.get("id"), String(watchedEpisode.id));
+      attempts++;
+      return attempts === 1
+        ? Response.json({ error: "Try again." }, { status: 503 })
+        : Response.json({ ok: true });
+    }
+    return Response.json(attempts < 2 ? [watchedEpisode] : []);
+  };
+  await mount(createElement(Watched));
+  await waitFor(() => assert.ok(button(watchedOptions)));
+  await click(watchedOptions);
+  await click("Delete");
+  const dialog = document.querySelector<HTMLDialogElement>("dialog[open]")!;
+  assert.ok(dialog);
+  assert.equal(attempts, 0);
+  assert.equal(document.querySelector('[role="menu"]'), null);
+  await act(async () =>
+    dialog.querySelector<HTMLButtonElement>("button")!.click(),
+  );
+  assert.equal(dialog.open, false);
+  assert.equal(attempts, 0);
+  assert.equal(document.activeElement, button(watchedOptions));
+
+  await click(watchedOptions);
+  await click("Delete");
+  const confirm = [...dialog.querySelectorAll("button")].find(
+    (item) => item.textContent === "Delete",
+  )!;
+  await act(async () => confirm.click());
+  await waitFor(() => {
+    assert.equal(attempts, 1);
+    assert.equal(confirm.disabled, false);
+  });
+  assert.ok(dialog.open);
+  await act(async () => confirm.click());
+  await waitFor(() =>
+    assert.equal(document.querySelector('a[href^="/tv/episode"]'), null),
+  );
+  assert.equal(attempts, 2);
+});
 
 test("season actions save independent favorites, watchlists and rich review drafts", async () => {
   const title = "Example show · Season 1";
@@ -541,11 +764,214 @@ test("the review library links specials to their episode and resumes the correct
     document.querySelector("article h2 a")?.getAttribute("href"),
     `/tv/episode?id=${show.id}&season=0&episode=1`,
   );
+  await click(`Review options for ${draft.title}, ${draft.subtitle}`);
   await click("Continue writing");
   await waitFor(() =>
     assert.equal(editorElement()?.textContent, "Saved review"),
   );
 });
+
+test("review cards show actions only in the creator's menu and remove them after account changes", async () => {
+  const ownReview = {
+    ...review,
+    status: "published",
+    updatedAt: "2026-10-02T00:00:00Z",
+  };
+  const otherReview = {
+    ...ownReview,
+    id: 8,
+    tmdbId: 604,
+    title: "Someone else's review",
+    userId: "another-user",
+  };
+  const missingOwner = {
+    ...ownReview,
+    id: 9,
+    tmdbId: 605,
+    title: "Unknown author",
+    userId: undefined,
+  };
+  let ownReads = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input), "https://next-watch.test");
+    assert.equal(url.pathname, "/api/reviews");
+    if (url.searchParams.has("tmdbId")) {
+      assert.equal(url.searchParams.get("tmdbId"), String(ownReview.tmdbId));
+      ownReads++;
+      return Response.json(ownReview);
+    }
+    return Response.json([ownReview, otherReview, missingOwner]);
+  };
+  await mount(createElement(Reviews));
+  await waitFor(() =>
+    assert.equal(document.querySelectorAll("article").length, 3),
+  );
+  const options = button(`Review options for ${ownReview.title}`);
+  assert.equal(document.querySelectorAll('[aria-haspopup="menu"]').length, 1);
+  assert.equal(
+    [...document.querySelectorAll("button")].some(
+      (item) => item.textContent === "Edit review",
+    ),
+    false,
+  );
+  assert.equal(ownReads, 0);
+  await act(async () => {
+    options.focus();
+    options.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", {
+        key: "ArrowUp",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  assert.deepEqual(
+    [...document.querySelectorAll('[role="menuitem"]')].map(
+      (item) => item.textContent,
+    ),
+    ["Edit review", "Delete review"],
+  );
+  assert.equal(document.activeElement?.textContent, "Delete review");
+  await click("Edit review");
+  await waitFor(() =>
+    assert.equal(editorElement()?.textContent, "Saved review"),
+  );
+  assert.equal(document.querySelector('[role="menu"]'), null);
+  assert.equal(ownReads, 1);
+  await click("Close review dialog");
+  assert.equal(document.querySelector("dialog[open]"), null);
+  assert.equal(document.activeElement, options);
+
+  await click(`Review options for ${ownReview.title}`);
+  auth.userId = "viewer";
+  await render(createElement(Reviews));
+  await waitFor(() =>
+    assert.equal(document.querySelectorAll("article").length, 3),
+  );
+  assert.equal(document.querySelector('[aria-haspopup="menu"]'), null);
+  assert.equal(document.querySelector('[role="menu"]'), null);
+  assert.equal(document.querySelector("dialog"), null);
+  assert.equal(ownReads, 1);
+
+  auth.userId = null;
+  await render(createElement(Reviews));
+  assert.equal(document.querySelector('[aria-haspopup="menu"]'), null);
+  assert.equal(redirects.at(-1), "/auth/sign-in");
+});
+
+for (const status of ["published", "draft"]) {
+  test(`${status} review menu deletion requires confirmation and recovers from auth and server failures`, async () => {
+    const entry = {
+      ...review,
+      mediaType: "tv",
+      season: 1,
+      episode: 2,
+      title: "Example show",
+      subtitle: "S01E02 · Second episode",
+      status,
+      updatedAt: "2026-10-02T00:00:00Z",
+    };
+    let deleted = false;
+    let attempts = 0;
+    let finishDelete!: (response: Response) => void;
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(String(input), "https://next-watch.test");
+      assert.equal(url.pathname, "/api/reviews");
+      if (init?.method === "DELETE") {
+        assert.equal(url.searchParams.get("id"), String(entry.id));
+        attempts++;
+        if (attempts === 1)
+          return Response.json({ error: "Try again." }, { status: 503 });
+        return new Promise<Response>((resolve) => {
+          finishDelete = resolve;
+        });
+      }
+      return Response.json(deleted ? [] : [entry]);
+    };
+    await mount(createElement(Reviews));
+    await waitFor(() => assert.ok(document.querySelector("article")));
+    const options = `Review options for ${entry.title}, ${entry.subtitle}`;
+    async function openDelete() {
+      await click(options);
+      const action = [
+        ...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+      ].find((item) => item.textContent === "Delete review")!;
+      assert.ok(action);
+      await act(async () => action.click());
+      return document.querySelector<HTMLDialogElement>("dialog[open]")!;
+    }
+    const confirmation = await openDelete();
+    assert.ok(confirmation);
+    assert.match(
+      confirmation.textContent ?? "",
+      /Example show.*S01E02 · Second episode/s,
+    );
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    assert.equal(attempts, 0);
+    const cancel = [...confirmation.querySelectorAll("button")].find(
+      (item) => item.textContent === "Cancel",
+    )!;
+    const confirm = [...confirmation.querySelectorAll("button")].find(
+      (item) => item.textContent === "Delete review",
+    )!;
+    await act(async () => cancel.click());
+    assert.equal(confirmation.open, false);
+    assert.equal(attempts, 0);
+    assert.ok(
+      document.activeElement === button(options),
+      "Cancel returns focus to the review menu",
+    );
+
+    await openDelete();
+    auth.token = null;
+    await act(async () => confirm.click());
+    await waitFor(() =>
+      assert.match(
+        confirmation.querySelector('[role="alert"]')?.textContent ?? "",
+        /Sign in to remove/,
+      ),
+    );
+    assert.equal(attempts, 0);
+    assert.ok(confirmation.open);
+    auth.token = "test-token";
+    await act(async () => confirm.click());
+    await waitFor(() =>
+      assert.match(
+        confirmation.querySelector('[role="alert"]')?.textContent ?? "",
+        /Couldn't delete/,
+      ),
+    );
+    assert.equal(attempts, 1);
+    assert.equal(document.querySelectorAll("article").length, 1);
+
+    await act(async () => cancel.click());
+    await openDelete();
+    await waitFor(() =>
+      assert.ok(
+        !confirmation.querySelector('[role="alert"]'),
+        "Reopening clears the previous error",
+      ),
+    );
+    await act(async () => confirm.click());
+    await waitFor(() => {
+      assert.equal(attempts, 2);
+      assert.equal(confirm.disabled, true);
+    });
+    assert.equal(cancel.disabled, true);
+    const escape = new dom.window.Event("cancel", { cancelable: true });
+    await act(async () => confirmation.dispatchEvent(escape));
+    assert.equal(escape.defaultPrevented, true);
+    await act(async () => {
+      deleted = true;
+      finishDelete(Response.json({ ok: true }));
+    });
+    await waitFor(() =>
+      assert.equal(document.querySelectorAll("article").length, 0),
+    );
+    assert.equal(document.querySelector("dialog[open]"), null);
+    assert.equal(attempts, 2);
+  });
+}
 
 test("review load failure requires retry before editing and preserves the existing review", async () => {
   let fail = true;
@@ -720,6 +1146,7 @@ test("a rich draft survives saving, reopening and publishing without losing form
 test("reviews page filters drafts, paginates all entries, resumes and removes a draft", async () => {
   const makeReview = (id: number, status: string) => ({
     ...movie,
+    userId: "test-user",
     tmdbId: id,
     id,
     status,
@@ -767,6 +1194,7 @@ test("reviews page filters drafts, paginates all entries, resumes and removes a 
     document.querySelector("article")?.textContent ?? "",
     /Private draft/,
   );
+  await click("Review options for Review 31");
   await click("Continue writing");
   await waitFor(() =>
     assert.equal(editorElement()?.textContent, "Some thoughts"),

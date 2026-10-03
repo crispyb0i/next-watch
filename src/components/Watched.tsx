@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient, getJWTToken } from "../lib/auth/client";
 import { entryHref, type WatchEntry } from "../lib/watchLog";
@@ -7,6 +7,7 @@ import { notify } from "../lib/notifications";
 import QueryProvider from "./QueryProvider";
 import { LogForm } from "./WatchLogButton";
 import AuthGate from "./AuthGate";
+import CardMenu from "./CardMenu";
 
 async function fetchWatched(
   offset: number,
@@ -46,6 +47,8 @@ function Entry({ entry }: { entry: WatchEntry }) {
   const href = entryHref(entry);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const editDialog = useRef<HTMLDialogElement>(null);
+  const editHeadingId = useId();
+  const menuButton = useRef<HTMLButtonElement>(null);
   const [deleting, setDeleting] = useState(false);
   // Remount the form on each open so its uncontrolled fields reset to the
   // current entry rather than keeping whatever was typed last time.
@@ -72,26 +75,29 @@ function Entry({ entry }: { entry: WatchEntry }) {
         aria-hidden="true"
         className="bg-accent border-surface absolute top-3 -left-[6px] h-3 w-3 rounded-full border-2"
       />
-      <details className="group">
-        <summary className="focus-visible:outline-accent flex cursor-pointer list-none gap-4 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 [&::-webkit-details-marker]:hidden">
-          <span className="shrink-0">
-            {entry.poster ? (
-              <img
-                src={entry.poster}
-                alt=""
-                width={72}
-                height={108}
-                loading="lazy"
-                className="bg-surface-muted aspect-[2/3] w-16 rounded-lg object-cover sm:w-18"
-              />
-            ) : (
-              <span className="bg-surface-muted text-text-muted grid aspect-[2/3] w-16 place-items-center rounded-lg text-xs sm:w-18">
-                No image
-              </span>
-            )}
-          </span>
-          <span className="min-w-0 flex-1 py-1">
-            <span className="text-text-primary block text-base font-bold break-words sm:text-lg">
+      <div className="flex items-start gap-4">
+        <span className="shrink-0">
+          {entry.poster ? (
+            <img
+              src={entry.poster}
+              alt=""
+              width={72}
+              height={108}
+              loading="lazy"
+              className="bg-surface-muted aspect-[2/3] w-16 rounded-lg object-cover sm:w-18"
+            />
+          ) : (
+            <span className="bg-surface-muted text-text-muted grid aspect-[2/3] w-16 place-items-center rounded-lg text-xs sm:w-18">
+              No image
+            </span>
+          )}
+        </span>
+        <div className="min-w-0 flex-1 py-1">
+          <a
+            href={href}
+            className="group focus-visible:outline-accent block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4"
+          >
+            <span className="text-text-primary group-hover:text-accent block text-base font-bold break-words transition-colors sm:text-lg">
               {entry.title}
             </span>
             {entry.subtitle && (
@@ -99,72 +105,61 @@ function Entry({ entry }: { entry: WatchEntry }) {
                 {entry.subtitle}
               </span>
             )}
-            {entry.notes && (
-              <span className="border-accent/20 bg-surface-muted/30 text-text-secondary mt-3 flex gap-2 rounded-lg border px-3 py-2 text-sm group-open:hidden">
-                <span
-                  aria-hidden="true"
-                  className="text-accent text-xl leading-5"
-                >
-                  “
-                </span>
-                <span className="line-clamp-2 min-w-0 break-words">
-                  {entry.notes}
-                </span>
-              </span>
-            )}
-          </span>
-          <span
-            aria-hidden="true"
-            className="text-text-muted mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full transition group-open:rotate-180"
-          >
-            ⌄
-          </span>
-          <span className="sr-only">Watch details</span>
-        </summary>
-        <div className="mt-3 pl-20 sm:pl-22">
-          <p className="text-text-muted text-xs">
-            Watched {formatDate(entry.watchedOn)}
-          </p>
+          </a>
           {entry.notes && (
-            <blockquote className="border-accent/30 text-text-secondary mt-3 border-l-2 pl-3 text-sm break-words whitespace-pre-wrap">
-              {entry.notes}
-            </blockquote>
+            <div className="bg-surface-muted/40 mt-3 rounded-xl px-4 py-3">
+              <p className="text-text-muted text-xs font-semibold">
+                Your notes
+              </p>
+              <p className="text-text-secondary mt-1 text-sm leading-relaxed break-words whitespace-pre-wrap">
+                {entry.notes}
+              </p>
+            </div>
           )}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <a
-              href={href}
-              className="text-accent rounded-lg px-2 py-2 text-sm hover:underline"
-            >
-              View title
-            </a>
-            <button
-              type="button"
-              onClick={() => {
+        </div>
+        <CardMenu
+          label={`Options for ${entry.title}${entry.subtitle ? `, ${entry.subtitle}` : ""}`}
+          buttonRef={menuButton}
+          actions={[
+            {
+              label: "Edit",
+              onSelect: () => {
                 setEditKey((key) => key + 1);
                 editDialog.current?.showModal();
-              }}
-              className="text-text-primary hover:bg-surface-muted rounded-lg px-2 py-2 text-sm"
-            >
-              Edit watch
-            </button>
-            <button
-              type="button"
-              onClick={() => confirmDialog.current?.showModal()}
-              className="text-danger hover:bg-surface-muted rounded-lg px-2 py-2 text-sm"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </details>
+              },
+            },
+            {
+              label: "Delete",
+              danger: true,
+              onSelect: () => confirmDialog.current?.showModal(),
+            },
+          ]}
+        />
+      </div>
 
       <dialog
         ref={editDialog}
-        className="bg-surface text-text-primary border-border/60 m-auto w-[min(28rem,90vw)] rounded-2xl border p-6 backdrop:bg-black/60"
+        onClose={() => menuButton.current?.focus()}
+        aria-labelledby={editHeadingId}
+        aria-describedby={
+          entry.subtitle ? `${editHeadingId}-subtitle` : undefined
+        }
+        className="bg-surface text-text-primary border-border/60 m-auto max-h-[90dvh] w-[min(28rem,90vw)] overflow-y-auto rounded-2xl border p-6 backdrop:bg-black/60"
       >
-        <h2 className="text-lg font-extrabold tracking-tight">
+        <h2
+          id={editHeadingId}
+          className="text-lg font-extrabold tracking-tight break-words"
+        >
           Edit “{entry.title}”
         </h2>
+        {entry.subtitle && (
+          <p
+            id={`${editHeadingId}-subtitle`}
+            className="text-text-secondary mt-1 text-sm break-words"
+          >
+            {entry.subtitle}
+          </p>
+        )}
         <LogForm
           key={editKey}
           item={entry}
@@ -179,9 +174,14 @@ function Entry({ entry }: { entry: WatchEntry }) {
 
       <dialog
         ref={confirmDialog}
+        onClose={() => menuButton.current?.focus()}
+        aria-labelledby={`${editHeadingId}-delete`}
         className="bg-surface text-text-primary border-border/60 m-auto w-[min(26rem,90vw)] rounded-2xl border p-6 backdrop:bg-black/60"
       >
-        <h2 className="text-lg font-extrabold tracking-tight">
+        <h2
+          id={`${editHeadingId}-delete`}
+          className="text-lg font-extrabold tracking-tight"
+        >
           Delete this log?
         </h2>
         <p className="text-text-muted mt-2 text-sm">

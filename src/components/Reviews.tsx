@@ -234,17 +234,19 @@ function ReviewLibrary() {
                       </p>
                     )}
                   </div>
-                  <div className="mt-4">
-                    <ReviewButton
-                      item={review}
-                      label={
-                        review.status === "draft"
-                          ? "Continue writing"
-                          : "Edit review"
-                      }
-                    />
-                  </div>
                 </div>
+                {session?.user.id && review.userId === session.user.id && (
+                  <ReviewButton
+                    item={review}
+                    reviewId={review.id}
+                    menuLabel={`Review options for ${review.title}${review.subtitle ? `, ${review.subtitle}` : ""}`}
+                    label={
+                      review.status === "draft"
+                        ? "Continue writing"
+                        : "Edit review"
+                    }
+                  />
+                )}
               </article>
             </li>
           ))}
