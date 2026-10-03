@@ -66,5 +66,17 @@ assert.equal(
   entryHref({ tmdbId: 1, mediaType: "tv", season: 0 }),
   "/tv/season?id=1&season=0",
 );
+assert.equal(
+  entryHref({ tmdbId: 1, mediaType: "tv", season: 4, episode: 2 }),
+  "/tv/episode?id=1&season=4&episode=2",
+);
+assert.equal(
+  entryHref({ tmdbId: 1, mediaType: "tv", season: 0, episode: 0 }),
+  "/tv/episode?id=1&season=0&episode=0",
+);
+assert.equal(
+  entryHref({ tmdbId: 1, mediaType: "tv", season: 2, episode: null }),
+  "/tv/season?id=1&season=2",
+);
 
 console.log("watchLog: ok");

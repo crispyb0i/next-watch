@@ -6,6 +6,7 @@ import { notify } from "../lib/notifications";
 import { requireAuth } from "../lib/auth/gate";
 import QueryProvider from "./QueryProvider";
 import StarPicker from "./StarPicker";
+import CardMenu from "./CardMenu";
 import {
   plainReviewDocument,
   reviewDocumentText,
@@ -233,12 +234,19 @@ function ReviewDialog({
   item,
   className = "",
   label = "Write a review",
+  menuLabel,
+  reviewId,
 }: {
   item: ReviewItem;
   className?: string;
   label?: string;
+  menuLabel?: string;
+  reviewId?: number;
 }) {
+  const queryClient = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
+  const confirmDialog = useRef<HTMLDialogElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const { data: session } = authClient.useSession();
@@ -256,26 +264,66 @@ function ReviewDialog({
     retry: false,
     staleTime: 0,
   });
+  const remove = useMutation({
+    mutationFn: () => {
+      if (reviewId == null) throw new Error("Couldn't find this review.");
+      return deleteReview(reviewId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["reviews"] });
+      confirmDialog.current?.close();
+      notify("Review removed.");
+    },
+    onError: (error) => notify(error.message, "error"),
+  });
+
+  async function openDialog() {
+    if (await requireAuth()) {
+      setOpen(true);
+      dialog.current?.showModal();
+    }
+  }
 
   return (
     <>
-      <button
-        type="button"
-        onClick={async () => {
-          if (await requireAuth()) {
-            setOpen(true);
-            dialog.current?.showModal();
-          }
-        }}
-        className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${className}`}
-      >
-        {label}
-      </button>
+      {menuLabel ? (
+        <CardMenu
+          label={menuLabel}
+          buttonRef={button}
+          actions={[
+            { label, onSelect: openDialog },
+            ...(reviewId != null
+              ? [
+                  {
+                    label: "Delete review",
+                    danger: true,
+                    onSelect: () => {
+                      remove.reset();
+                      confirmDialog.current?.showModal();
+                    },
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : (
+        <button
+          ref={button}
+          type="button"
+          onClick={openDialog}
+          className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${className}`}
+        >
+          {label}
+        </button>
+      )}
 
       <dialog
         ref={dialog}
         aria-labelledby={headingId}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          button.current?.focus();
+        }}
         className="bg-surface text-text-primary border-border/60 m-auto max-h-[90dvh] w-[min(38rem,94vw)] overflow-y-auto rounded-2xl border p-5 backdrop:bg-black/60 sm:p-6"
       >
         <div className="flex items-start justify-between gap-4">
@@ -320,6 +368,59 @@ function ReviewDialog({
           />
         ) : null}
       </dialog>
+      {reviewId != null && (
+        <dialog
+          ref={confirmDialog}
+          aria-labelledby={`${headingId}-delete`}
+          aria-describedby={`${headingId}-delete-description`}
+          onClose={() => button.current?.focus()}
+          onCancel={(event) => {
+            if (remove.isPending) event.preventDefault();
+          }}
+          className="bg-surface text-text-primary border-border/60 m-auto max-h-[90dvh] w-[min(28rem,90vw)] overflow-y-auto rounded-2xl border p-6 backdrop:bg-black/60"
+        >
+          <h2
+            id={`${headingId}-delete`}
+            className="text-lg font-extrabold tracking-tight"
+          >
+            Delete review?
+          </h2>
+          <p
+            id={`${headingId}-delete-description`}
+            className="text-text-secondary mt-3 text-sm break-words"
+          >
+            Your review of “{item.title}” will be permanently deleted.
+            {item.subtitle && (
+              <span className="mt-1 block">{item.subtitle}</span>
+            )}
+          </p>
+          {remove.isError && (
+            <p role="alert" className="text-danger mt-3 text-sm">
+              {remove.error.message}
+            </p>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={remove.isPending}
+              onClick={() => confirmDialog.current?.close()}
+              className="text-text-muted hover:text-text-primary focus-visible:outline-accent rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (!remove.isPending) remove.mutate();
+              }}
+              className="bg-danger text-accent-contrast hover:bg-danger/90 focus-visible:outline-accent rounded-full px-4 py-2 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
+            >
+              {remove.isPending ? "Deleting…" : "Delete review"}
+            </button>
+          </div>
+        </dialog>
+      )}
     </>
   );
 }
@@ -328,6 +429,8 @@ export default function ReviewButton(props: {
   item: ReviewItem;
   className?: string;
   label?: string;
+  menuLabel?: string;
+  reviewId?: number;
 }) {
   return (
     <QueryProvider>

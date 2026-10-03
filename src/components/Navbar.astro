@@ -3,21 +3,24 @@ import AlertIndicator from "./AlertIndicator";
 import AuthMenu from "./AuthMenu.tsx";
 import NavbarSearch from "./SearchBox";
 
-const links = [
+const primaryLinks = [
   // Movie nights is paused; restore this entry when the feature returns.
   // { href: "/community", label: "Movie nights" },
-  { href: "/alerts", label: "Alerts" },
   { href: "/discover", label: "Discover" },
   { href: "/feed", label: "Friends" },
-  { href: "/watched", label: "My log" },
   { href: "/reviews", label: "Reviews" },
   { href: "/watchlist", label: "Watchlist" },
+];
+
+const libraryLinks = [
+  { href: "/watched", label: "My log" },
   { href: "/lists", label: "Lists" },
   { href: "/favorites", label: "Favorites" },
 ];
 
 const path = Astro.url.pathname;
 const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
+const isLibraryActive = libraryLinks.some((link) => isActive(link.href));
 ---
 
 <header class="border-border/60 bg-surface/70 sticky top-0 z-20 border-b backdrop-blur-xl">
@@ -34,27 +37,64 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
 
     <!-- Desktop: links inline; the disclosure below takes over under `xl`. -->
     <div class="ml-2 hidden shrink-0 items-center gap-1 xl:flex">
-      {links
-        .filter((link) => link.href !== "/alerts")
-        .map((link) => (
-          <a
-            href={link.href}
-            aria-current={isActive(link.href) ? "page" : undefined}
-            class:list={[
-              "focus-visible:outline-accent rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2",
-              isActive(link.href)
-                ? "bg-accent/15 text-accent-hover"
-                : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
-            ]}
+      {primaryLinks.map((link) => (
+        <a
+          href={link.href}
+          aria-current={isActive(link.href) ? "page" : undefined}
+          class:list={[
+            "focus-visible:outline-accent rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2",
+            isActive(link.href)
+              ? "bg-accent/15 text-accent-hover"
+              : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
+          ]}
+        >
+          {link.label}
+        </a>
+      ))}
+      <details class="group relative" data-nav-disclosure>
+        <summary
+          class:list={[
+            "focus-visible:outline-accent flex cursor-pointer list-none items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden",
+            isLibraryActive
+              ? "bg-accent/15 text-accent-hover"
+              : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
+          ]}
+        >
+          Library
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            class="h-4 w-4 transition-transform group-open:rotate-180"
           >
-            {link.label}
-          </a>
-        ))}
+            <path d="m5 7.5 5 5 5-5"></path>
+          </svg>
+        </summary>
+        <div class="border-border/60 bg-surface-elevated shadow-card absolute left-0 z-30 mt-2 w-48 rounded-2xl border p-1.5">
+          {libraryLinks.map((link) => (
+            <a
+              href={link.href}
+              aria-current={isActive(link.href) ? "page" : undefined}
+              class:list={[
+                "focus-visible:outline-accent flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
+                isActive(link.href)
+                  ? "bg-accent/15 text-accent-hover"
+                  : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
+              ]}
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      </details>
     </div>
 
-    <!-- Native disclosure keeps navigation keyboard-accessible without
-         shipping menu-state JavaScript. -->
-    <details class="group ml-auto shrink-0 xl:hidden">
+    <!-- Library links stay expanded inside the mobile navigation. -->
+    <details class="group ml-auto shrink-0 xl:hidden" data-nav-disclosure>
       <summary
         class="border-border/60 hover:border-accent focus-visible:outline-accent grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full border transition focus-visible:outline-2 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden"
         aria-label="Navigation menu"
@@ -83,9 +123,9 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
           <path d="m6 6 12 12M18 6 6 18"></path>
         </svg>
       </summary>
-      <div class="border-border/60 bg-surface-elevated absolute inset-x-0 top-full border-b p-3 shadow-xl">
+      <div class="border-border/60 bg-surface-elevated absolute inset-x-0 top-full max-h-[calc(100dvh-5rem)] overflow-y-auto border-b p-3 shadow-xl">
         <div class="mx-auto grid max-w-7xl gap-1">
-          {links.map((link) => (
+          {primaryLinks.map((link) => (
             <a
               href={link.href}
               aria-current={isActive(link.href) ? "page" : undefined}
@@ -99,6 +139,25 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
               {link.label}
             </a>
           ))}
+          <div class="border-border/60 mt-2 border-t pt-2">
+            <p class="text-text-muted px-4 py-2 text-xs font-semibold tracking-wide uppercase">
+              Library
+            </p>
+            {libraryLinks.map((link) => (
+              <a
+                href={link.href}
+                aria-current={isActive(link.href) ? "page" : undefined}
+                class:list={[
+                  "focus-visible:outline-accent flex min-h-11 items-center rounded-xl px-4 font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
+                  isActive(link.href)
+                    ? "bg-accent/15 text-accent-hover"
+                    : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
+                ]}
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </details>
@@ -143,3 +202,39 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
     </div>
   </nav>
 </header>
+
+<script>
+  // Delegate to the document so disclosures also work after Astro navigation.
+  document.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) return;
+    const target = event.target;
+    document
+      .querySelectorAll<HTMLDetailsElement>("[data-nav-disclosure][open]")
+      .forEach((menu) => {
+        if (!menu.contains(target) || target.closest("a[href]"))
+          menu.open = false;
+      });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    document
+      .querySelectorAll<HTMLDetailsElement>("[data-nav-disclosure][open]")
+      .forEach((menu) => {
+        menu.open = false;
+        if (event.target instanceof Node && menu.contains(event.target)) {
+          menu.querySelector("summary")?.focus();
+        }
+      });
+  });
+
+  document.addEventListener("focusin", (event) => {
+    if (!(event.target instanceof Node)) return;
+    const target = event.target;
+    document
+      .querySelectorAll<HTMLDetailsElement>("[data-nav-disclosure][open]")
+      .forEach((menu) => {
+        if (!menu.contains(target)) menu.open = false;
+      });
+  });
+</script>

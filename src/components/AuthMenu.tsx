@@ -107,6 +107,14 @@ export default function AuthMenu() {
             <p className="text-text-muted truncate text-xs">{email}</p>
           </a>
           <a
+            href="/alerts"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="text-text-primary hover:bg-surface-muted block px-3.5 py-2 text-sm transition"
+          >
+            Alerts
+          </a>
+          <a
             href="/settings"
             role="menuitem"
             className="text-text-primary hover:bg-surface-muted block px-3.5 py-2 text-sm transition"

@@ -26,8 +26,11 @@ export function entryHref(entry: {
   tmdbId: number;
   mediaType: MediaType;
   season?: number | null;
+  episode?: number | null;
 }) {
   if (entry.mediaType !== "tv") return `/movie?id=${entry.tmdbId}`;
+  if (entry.season != null && entry.episode != null)
+    return `/tv/episode?id=${entry.tmdbId}&season=${entry.season}&episode=${entry.episode}`;
   return entry.season == null
     ? `/tv?id=${entry.tmdbId}`
     : `/tv/season?id=${entry.tmdbId}&season=${entry.season}`;
