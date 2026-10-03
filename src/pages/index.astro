@@ -7,5 +7,7 @@ import "../styles/global.css";
 
 <Layout>
   <Welcome />
-  <Trending client:load />
+  <Trending client:only="react">
+    <Trending slot="fallback" />
+  </Trending>
 </Layout>

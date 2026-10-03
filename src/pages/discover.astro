@@ -5,5 +5,9 @@ import "../styles/global.css";
 ---
 
 <Layout>
-  <Discover client:load />
+  <!-- Results live in the browser cache. Mount them directly on return visits
+       instead of hydrating cached cards against server loading placeholders. -->
+  <Discover client:only="react">
+    <Discover slot="fallback" />
+  </Discover>
 </Layout>

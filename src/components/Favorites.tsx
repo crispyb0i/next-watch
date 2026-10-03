@@ -13,7 +13,6 @@ import {
   type SaveKind,
 } from "../lib/favorites";
 import MediaCard from "./MediaCard";
-import ImageGroup from "./ImageGroup";
 import { PosterGridSkeleton } from "./Skeleton";
 import AuthGate from "./AuthGate";
 import FavoriteButton from "./FavoriteButton";
@@ -140,55 +139,48 @@ function FavoritesList({ kind }: { kind: SaveKind }) {
           No saved titles match your filters.
         </p>
       ) : (
-        <ImageGroup>
-          <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {visible.map((item) => {
-              const mediaType = item.mediaType ?? "movie";
-              const href = mediaHref(
-                item.href,
-                mediaType,
-                item.id,
-                item.season,
-              );
-              return (
-                <MediaCard
-                  key={`${mediaType}-${item.id}-${item.season ?? "all"}`}
-                  href={href}
-                  title={item.title}
-                  subtitle={item.subtitle}
-                  poster={item.poster}
-                  rating={item.rating}
-                  actions={
-                    isWatchlist ? (
-                      <>
-                        {mediaType === "movie" && href.startsWith("/movie?") ? (
-                          <WatchLogButton
-                            item={{
-                              tmdbId: item.id,
-                              mediaType,
-                              title: item.title,
-                              poster: item.poster,
-                              subtitle: item.subtitle,
-                            }}
-                          />
-                        ) : (
-                          <a
-                            href={href}
-                            aria-label={`Track episodes of ${item.title}`}
-                            className="border-border/60 hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold focus-visible:outline-2"
-                          >
-                            Track episodes
-                          </a>
-                        )}
-                        <FavoriteButton item={item} activeLabel="Remove" />
-                      </>
-                    ) : undefined
-                  }
-                />
-              );
-            })}
-          </ul>
-        </ImageGroup>
+        <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {visible.map((item) => {
+            const mediaType = item.mediaType ?? "movie";
+            const href = mediaHref(item.href, mediaType, item.id, item.season);
+            return (
+              <MediaCard
+                key={`${mediaType}-${item.id}-${item.season ?? "all"}`}
+                href={href}
+                title={item.title}
+                subtitle={item.subtitle}
+                poster={item.poster}
+                rating={item.rating}
+                actions={
+                  isWatchlist ? (
+                    <>
+                      {mediaType === "movie" && href.startsWith("/movie?") ? (
+                        <WatchLogButton
+                          item={{
+                            tmdbId: item.id,
+                            mediaType,
+                            title: item.title,
+                            poster: item.poster,
+                            subtitle: item.subtitle,
+                          }}
+                        />
+                      ) : (
+                        <a
+                          href={href}
+                          aria-label={`Track episodes of ${item.title}`}
+                          className="border-border/60 hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold focus-visible:outline-2"
+                        >
+                          Track episodes
+                        </a>
+                      )}
+                      <FavoriteButton item={item} activeLabel="Remove" />
+                    </>
+                  ) : undefined
+                }
+              />
+            );
+          })}
+        </ul>
       )}
     </div>
   );

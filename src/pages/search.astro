@@ -20,5 +20,18 @@ const q = Astro.url.searchParams.get("q")?.trim().slice(0, 200) ?? "";
 ---
 
 <Layout title={q ? `Search: ${q} — Next Watch` : "Search — Next Watch"} noindex>
-  <Search client:load initialQuery={q} initialTab={tab} initialPage={page} />
+  <Search
+    client:only="react"
+    transition:persist="search-results"
+    initialQuery={q}
+    initialTab={tab}
+    initialPage={page}
+  >
+    <Search
+      slot="fallback"
+      initialQuery={q}
+      initialTab={tab}
+      initialPage={page}
+    />
+  </Search>
 </Layout>

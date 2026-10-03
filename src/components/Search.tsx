@@ -4,7 +4,6 @@ import { SearchBox, toCard, type Tab } from "./SearchBox";
 import QueryProvider from "./QueryProvider";
 import MediaCard from "./MediaCard";
 import Trending from "./Trending";
-import ImageGroup from "./ImageGroup";
 import { PosterGridSkeleton } from "./Skeleton";
 
 interface UserResult {
@@ -48,6 +47,7 @@ function SearchInner({
         signal,
       ),
     enabled: activeTab !== "users" && term.length > 0,
+    placeholderData: term.length > 0 ? (previous) => previous : undefined,
   });
 
   const people = useQuery({
@@ -60,13 +60,14 @@ function SearchInner({
         return r.json();
       }),
     enabled: activeTab === "users" && term.length > 1,
+    placeholderData: term.length > 1 ? (previous) => previous : undefined,
   });
 
-  const { isFetching, isError } = activeTab === "users" ? people : media;
+  const { isFetching, isError, refetch } =
+    activeTab === "users" ? people : media;
 
-  const results = (media.data?.results ?? []).filter(
-    (item) => activeTab === "all" || item.media_type === activeTab,
-  );
+  // Keep the previous grid while fetching; each result carries its own type.
+  const results = media.data?.results ?? [];
   const users = people.data ?? [];
   const count = activeTab === "users" ? users.length : results.length;
 
@@ -93,14 +94,10 @@ function SearchInner({
           className="-mx-4 mt-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
         >
           {TABS.map(([value, label]) => (
-            <button
+            <a
               key={value}
-              role="button"
-              type="button"
-              aria-pressed={activeTab === value}
-              onClick={() => {
-                location.href = `/search?${new URLSearchParams({ q: value === "users" ? submitted : term, tab: value })}`;
-              }}
+              aria-current={activeTab === value ? "page" : undefined}
+              href={`/search?${new URLSearchParams({ q: value === "users" ? submitted : term, tab: value })}`}
               className={`shrink-0 rounded-full border px-4 py-2 text-sm whitespace-nowrap transition ${
                 activeTab === value
                   ? "border-accent bg-accent/15 text-accent"
@@ -108,13 +105,28 @@ function SearchInner({
               }`}
             >
               {label}
-            </button>
+            </a>
           ))}
         </div>
 
+        <p role="status" className="sr-only">
+          {isFetching ? "Updating search results…" : ""}
+        </p>
+
         {isError && (
-          <p className="rounded-card bg-danger-surface/60 text-danger border-danger/40 mt-6 border px-4 py-3 text-center text-sm">
-            Something went wrong. Try again.
+          <p
+            role="alert"
+            className="rounded-card bg-danger-surface/60 text-danger border-danger/40 mt-6 border px-4 py-3 text-center text-sm"
+          >
+            Something went wrong.{" "}
+            <button
+              type="button"
+              className="underline"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+            >
+              {isFetching ? "Retrying…" : "Try again."}
+            </button>
           </p>
         )}
 
@@ -132,12 +144,15 @@ function SearchInner({
 
       {isSearchActive && isFetching && !count && (
         <div className="mt-10">
-          <PosterGridSkeleton />
+          <PosterGridSkeleton count={20} className="mt-0" />
         </div>
       )}
 
       {activeTab === "users" && users.length > 0 && (
-        <ul className="mx-auto mt-10 grid w-full max-w-2xl gap-3">
+        <ul
+          aria-busy={isFetching}
+          className="mx-auto mt-10 grid w-full max-w-2xl gap-3"
+        >
           {users.map((user) => (
             <li key={user.id}>
               <a
@@ -168,44 +183,49 @@ function SearchInner({
       )}
 
       {activeTab !== "users" && results.length > 0 && (
-        <ImageGroup key={`${term}:${activeTab}`}>
-          <ul className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {results.map((item) => (
-              <MediaCard
-                key={`${item.media_type}:${item.id}`}
-                {...toCard(item)}
-              />
-            ))}
-          </ul>
-        </ImageGroup>
+        <ul
+          aria-busy={isFetching}
+          className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+        >
+          {results.map((item) => (
+            <MediaCard
+              key={`${item.media_type}:${item.id}`}
+              {...toCard(item)}
+            />
+          ))}
+        </ul>
       )}
 
-      {activeTab !== "users" && isSearchActive && !isError && media.data && (
-        <nav
-          aria-label="Search pages"
-          className="mt-8 flex items-center justify-center gap-6"
-        >
-          {initialPage > 1 && (
-            <a
-              className="underline"
-              href={`/search?${new URLSearchParams({ q: submitted, tab: activeTab, page: String(initialPage - 1) })}`}
-            >
-              Previous page
-            </a>
-          )}
-          <span aria-live="polite">
-            Page {initialPage} · {media.data.total_results ?? count} results
-          </span>
-          {initialPage < Math.min(media.data.total_pages ?? 1, 500) && (
-            <a
-              className="underline"
-              href={`/search?${new URLSearchParams({ q: submitted, tab: activeTab, page: String(initialPage + 1) })}`}
-            >
-              Next page
-            </a>
-          )}
-        </nav>
-      )}
+      {activeTab !== "users" &&
+        isSearchActive &&
+        !isError &&
+        media.data &&
+        !media.isPlaceholderData && (
+          <nav
+            aria-label="Search pages"
+            className="mt-8 flex items-center justify-center gap-6"
+          >
+            {initialPage > 1 && (
+              <a
+                className="underline"
+                href={`/search?${new URLSearchParams({ q: submitted, tab: activeTab, page: String(initialPage - 1) })}`}
+              >
+                Previous page
+              </a>
+            )}
+            <span aria-live="polite">
+              Page {initialPage} · {media.data.total_results ?? count} results
+            </span>
+            {initialPage < Math.min(media.data.total_pages ?? 1, 500) && (
+              <a
+                className="underline"
+                href={`/search?${new URLSearchParams({ q: submitted, tab: activeTab, page: String(initialPage + 1) })}`}
+              >
+                Next page
+              </a>
+            )}
+          </nav>
+        )}
       {!isSearchActive && (
         <div className="mt-20">
           <Trending />
@@ -222,10 +242,7 @@ export default function Search(props: {
 }) {
   return (
     <QueryProvider>
-      <SearchInner
-        key={`${props.initialQuery}:${props.initialTab}:${props.initialPage}`}
-        {...props}
-      />
+      <SearchInner {...props} />
     </QueryProvider>
   );
 }

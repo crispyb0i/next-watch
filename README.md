@@ -70,6 +70,27 @@ while the development server remains active. Start development with
 `npx astro dev --background`; manage it with `npx astro dev status`,
 `npx astro dev logs`, and `npx astro dev stop`.
 
+## Navigation and loading
+
+Internal navigation uses Astro's client router without a page-wide fade. Search
+submissions, keyboard suggestions, result filters, and pagination keep the same
+document and shared query cache. The navbar search and notifications persist;
+search results remain visible while a different result set loads, with loading
+announcements and a retry action for failures.
+
+Discover, Trending, and Search fetch their results in the browser, so their page
+islands mount directly from the browser cache. Their server-rendered fallback
+markup preserves headings and loading geometry without hydrating cached cards
+against an empty server cache. Detail pages retain server-rendered initial data.
+Posters and cast photos render independently in reserved image dimensions; no
+grid waits for a slow image. Scrollbar space and account-control width are
+reserved, late font swaps are avoided, and reduced-motion preferences are honored.
+
+`npm test` includes navigation UI regressions for pending results, cached filters,
+cleared searches, failed requests and retry, keyboard suggestions, and query
+synchronization. Browser verification should also cover Back/Forward, pagination,
+mobile menus, light/dark appearance, and reduced motion.
+
 ## New account features
 
 - **Watchlist controls** (`/watchlist`): search saved titles, filter movies or TV,

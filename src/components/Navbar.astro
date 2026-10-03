@@ -124,10 +124,10 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
     </a>
 
     <div class="hidden flex-1 sm:block sm:min-w-40 sm:max-w-xs xl:ml-auto xl:max-w-64">
-      <NavbarSearch client:load />
+      <NavbarSearch client:load transition:persist="navbar-search" />
     </div>
 
-    <div class="flex shrink-0 items-center gap-2">
+    <div class="flex h-10 w-24 shrink-0 items-center justify-end gap-2 sm:w-26">
       <AlertIndicator client:load transition:persist="streaming-alerts" />
       <AuthMenu client:load transition:persist="auth-menu" />
     </div>

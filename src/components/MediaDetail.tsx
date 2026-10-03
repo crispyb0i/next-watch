@@ -16,7 +16,6 @@ export function useRegion(): string {
   }, []);
   return region;
 }
-import ImageGroup, { useGroupImage } from "./ImageGroup";
 
 /** Parsed server-side so detail pages never hydrate a "not specified" flash. */
 export function parseId(raw: string | null): number | null {
@@ -48,39 +47,31 @@ export function CastGrid({
       <h2 className="text-text-primary text-xl font-extrabold tracking-tight">
         {title}
       </h2>
-      <ImageGroup>
-        <ul className="mt-6 grid grid-cols-3 gap-5 sm:grid-cols-4 md:grid-cols-6">
-          {cast.slice(0, 12).map((member) => (
-            <CastCard key={member.id} member={member} />
-          ))}
-        </ul>
-      </ImageGroup>
+      <ul className="mt-6 grid grid-cols-3 gap-5 sm:grid-cols-4 md:grid-cols-6">
+        {cast.slice(0, 12).map((member) => (
+          <CastCard key={member.id} member={member} />
+        ))}
+      </ul>
     </div>
   );
 }
 
 function CastCard({ member }: { member: CastMember }) {
   const photo = profileUrl(member.profile_path);
-  const { ready, onSettled } = useGroupImage(Boolean(photo));
 
   return (
     <li className="text-center">
       <a href={`/person?id=${member.id}`} className="group block">
         <div className="bg-surface-muted border-border/60 group-hover:border-accent group-hover:shadow-accent/25 relative mx-auto aspect-square w-full overflow-hidden rounded-full border transition group-hover:shadow-lg">
-          {!ready && photo && (
-            <div className="bg-surface-muted/60 absolute inset-0 animate-pulse" />
-          )}
           {photo ? (
             <img
               src={photo}
               alt={member.name}
+              width={185}
+              height={185}
               loading="lazy"
               decoding="async"
-              onLoad={onSettled}
-              onError={onSettled}
-              className={`h-full w-full object-cover transition-opacity duration-500 ${
-                ready ? "opacity-100" : "opacity-0"
-              }`}
+              className="h-full w-full object-cover"
             />
           ) : (
             <div className="text-text-muted flex h-full w-full items-center justify-center text-xs">
