@@ -13,6 +13,7 @@ import { CastGrid } from "./MediaDetail";
 import WatchLogButton from "./WatchLogButton";
 import FavoriteButton from "./FavoriteButton";
 import ReviewButton from "./ReviewButton";
+import AddToListButton from "./AddToListButton";
 import { DetailSkeleton } from "./Skeleton";
 
 function CrewLine({
@@ -196,6 +197,17 @@ function EpisodeDetailInner({
                 subtitle: episode.name,
               }}
             />
+            <AddToListButton
+              item={{
+                tmdbId: tvId,
+                mediaType: "tv",
+                season: episode.season_number,
+                episode: episode.episode_number,
+                title: `${show.name} ${code}`,
+                poster: posterUrl(show.poster_path),
+                subtitle: episode.name,
+              }}
+            />
           </div>
         </div>
       </div>
@@ -207,7 +219,7 @@ function EpisodeDetailInner({
         {episode.runtime && <span>{episode.runtime} min</span>}
         {episode.vote_average > 0 && (
           <span className="text-star border-star/30 bg-star/10 rounded-full border px-2.5 py-0.5 font-bold">
-            ★ {episode.vote_average.toFixed(1)}
+            ★ {(episode.vote_average / 2).toFixed(1)}/5
           </span>
         )}
       </div>

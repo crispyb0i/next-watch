@@ -197,7 +197,7 @@ export default function MediaDetail({
             )}
             {voteAverage > 0 && (
               <span className="text-star border-star/30 bg-star/10 rounded-full border px-2.5 py-0.5 font-bold">
-                ★ {voteAverage.toFixed(1)}
+                ★ {(voteAverage / 2).toFixed(1)}/5
               </span>
             )}
           </div>

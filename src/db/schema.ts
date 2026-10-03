@@ -24,6 +24,71 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const customLists = pgTable(
+  "custom_lists",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    shared: boolean("shared").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("custom_lists_user_idx").on(table.userId, table.updatedAt),
+    check(
+      "custom_lists_title_check",
+      sql`length(trim(${table.title})) between 1 and 100`,
+    ),
+    check(
+      "custom_lists_description_check",
+      sql`length(${table.description}) <= 2000`,
+    ),
+  ],
+);
+
+export const customListItems = pgTable(
+  "custom_list_items",
+  {
+    id: serial("id").primaryKey(),
+    listId: text("list_id")
+      .notNull()
+      .references(() => customLists.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id").notNull(),
+    mediaType: text("media_type").$type<"movie" | "tv">().notNull(),
+    season: integer("season").notNull().default(-1),
+    episode: integer("episode").notNull().default(-1),
+    title: text("title").notNull(),
+    poster: text("poster"),
+    subtitle: text("subtitle"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("custom_list_items_identity_idx").on(
+      table.listId,
+      table.tmdbId,
+      table.mediaType,
+      table.season,
+      table.episode,
+    ),
+    check(
+      "custom_list_items_media_check",
+      sql`${table.tmdbId} > 0 and ${table.mediaType} in ('movie', 'tv')`,
+    ),
+    check(
+      "custom_list_items_coordinates_check",
+      sql`(${table.season} = -1 and ${table.episode} = -1) or (${table.mediaType} = 'tv' and ${table.season} >= 0 and (${table.episode} = -1 or ${table.episode} > 0))`,
+    ),
+    check(
+      "custom_list_items_title_check",
+      sql`length(trim(${table.title})) between 1 and 300`,
+    ),
+  ],
+);
+
 // ponytail: no `status` column — follows are public and instant, so a row means
 // "following". Add status plus a pending state if private accounts land.
 export const follows = pgTable(

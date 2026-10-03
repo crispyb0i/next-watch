@@ -86,6 +86,10 @@ const { createRoot } = await import("react-dom/client");
 const { default: ReviewButton } =
   await import("../components/ReviewButton.tsx");
 const { default: Reviews } = await import("../components/Reviews.tsx");
+const { default: Lists } = await import("../components/Lists.tsx");
+const { default: AddToListButton } =
+  await import("../components/AddToListButton.tsx");
+const { default: ListDetail } = await import("../components/ListDetail.tsx");
 const { default: Favorites } = await import("../components/Favorites.tsx");
 const { default: SeasonDetail } =
   await import("../components/SeasonDetail.tsx");
@@ -1019,4 +1023,342 @@ test("reviews retain rows during slow filters, retry failures, and never carry p
   await render(createElement(Reviews));
   assert.equal(document.querySelector("article"), null);
   assert.ok(document.querySelector('[aria-label="Loading your reviews"]'));
+});
+
+const listId = "11111111-1111-4111-8111-111111111111";
+const listSummary = {
+  id: listId,
+  title: "Weekend picks",
+  description: "For a rainy day",
+  shared: false,
+  itemCount: 1,
+};
+const listTitle = {
+  tmdbId: 42,
+  mediaType: "movie" as const,
+  title: "Example movie",
+  poster: null,
+};
+
+function listFormValue(name: string, value: string) {
+  const input = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+    `form [name="${name}"]`,
+  );
+  assert.ok(input);
+  input.value = value;
+}
+async function submitListForm() {
+  const form = document.querySelector("form");
+  assert.ok(form);
+  await act(async () => {
+    form.dispatchEvent(
+      new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+    );
+  });
+}
+
+test("add-to-list retries load and save failures, and closes only after a successful add", async () => {
+  let loadFails = true,
+    saveFails = true;
+  const writes: any[] = [];
+  globalThis.fetch = async (_input, init) => {
+    if (init?.method === "POST") {
+      writes.push(JSON.parse(String(init.body)));
+      return saveFails
+        ? Response.json({ error: "Could not add title" }, { status: 503 })
+        : Response.json({ ok: true });
+    }
+    return loadFails
+      ? Response.json({ error: "Lists unavailable" }, { status: 503 })
+      : Response.json([listSummary]);
+  };
+  await mount(createElement(AddToListButton, { item: listTitle }));
+  await click("Add to list");
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /Lists unavailable/,
+    ),
+  );
+  assert.ok(document.querySelector("dialog[open]"));
+  loadFails = false;
+  await click("Retry");
+  await waitFor(() =>
+    assert.match(document.body.textContent ?? "", /Weekend picks/),
+  );
+  const pick = async () => {
+    await act(async () => {
+      const target = [...document.querySelectorAll("dialog button")].find(
+        (button) => button.textContent?.includes("Weekend picks"),
+      ) as HTMLButtonElement;
+      assert.ok(target);
+      target.click();
+    });
+  };
+  await pick();
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /Could not add title/,
+    ),
+  );
+  assert.ok(document.querySelector("dialog[open]"));
+  saveFails = false;
+  await pick();
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.deepEqual(writes.at(-1), {
+    action: "add",
+    id: listId,
+    item: listTitle,
+  });
+});
+
+test("creating a list while adding preserves failed drafts and discards cancelled drafts", async () => {
+  let fail = true;
+  let payload: any;
+  globalThis.fetch = async (_input, init) => {
+    if (init?.method === "POST") {
+      payload = JSON.parse(String(init.body));
+      return fail
+        ? Response.json({ error: "Try saving again" }, { status: 503 })
+        : Response.json({ id: listId });
+    }
+    return Response.json([]);
+  };
+  await mount(createElement(AddToListButton, { item: listTitle }));
+  await click("Add to list");
+  await click("Create a new list");
+  listFormValue("title", "October horror");
+  listFormValue("description", "Bring popcorn");
+  assert.equal(
+    document.querySelector<HTMLInputElement>('[name="shared"]')?.checked,
+    false,
+  );
+  await submitListForm();
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /Try saving again/,
+    ),
+  );
+  assert.equal(
+    document.querySelector<HTMLInputElement>('[name="title"]')?.value,
+    "October horror",
+  );
+  await click("Close list dialog");
+  await click("Add to list");
+  await click("Create a new list");
+  assert.equal(
+    document.querySelector<HTMLInputElement>('[name="title"]')?.value,
+    "",
+  );
+  listFormValue("title", "Fresh list");
+  fail = false;
+  await submitListForm();
+  await waitFor(() =>
+    assert.equal(document.querySelector("dialog[open]"), null),
+  );
+  assert.equal(payload.shared, false);
+  assert.equal(payload.title, "Fresh list");
+  assert.deepEqual(payload.item, listTitle);
+});
+
+test("a completed save from a closed list dialog does not dismiss a new draft", async () => {
+  let finishSave!: (response: Response) => void;
+  globalThis.fetch = async (_input, init) =>
+    init?.method === "POST"
+      ? new Promise<Response>((resolve) => {
+          finishSave = resolve;
+        })
+      : Response.json([]);
+  await mount(createElement(AddToListButton, { item: listTitle }));
+  await click("Add to list");
+  await click("Create a new list");
+  listFormValue("title", "First list");
+  await submitListForm();
+  await click("Close list dialog");
+  await click("Add to list");
+  await click("Create a new list");
+  listFormValue("title", "Second draft");
+  await act(async () => {
+    finishSave(Response.json({ id: listId }));
+  });
+  await waitFor(() => {
+    assert.ok(document.querySelector("dialog[open]"));
+    assert.equal(
+      document.querySelector<HTMLInputElement>('[name="title"]')?.value,
+      "Second draft",
+    );
+  });
+});
+
+test("list library creates private lists and isolates cached lists across accounts", async () => {
+  let created = false;
+  let payload: any;
+  globalThis.fetch = async (_input, init) => {
+    if (init?.method === "POST") {
+      payload = JSON.parse(String(init.body));
+      created = true;
+      return Response.json({ id: listId });
+    }
+    return Response.json(created ? [listSummary] : []);
+  };
+  await mount(createElement(Lists));
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /Make room for your next obsession/,
+    ),
+  );
+  await click("Create list");
+  listFormValue("title", "Weekend picks");
+  await submitListForm();
+  await waitFor(() =>
+    assert.ok(document.querySelector(`a[href="/lists/${listId}"]`)),
+  );
+  assert.equal(payload.shared, false);
+  assert.equal(payload.action, "create");
+  globalThis.fetch = async () => new Promise<Response>(() => {});
+  auth.userId = "other-user";
+  await render(createElement(Lists));
+  assert.doesNotMatch(document.body.textContent ?? "", /Weekend picks/);
+  assert.match(document.body.textContent ?? "", /Loading your lists/);
+});
+
+test("shared lists render signed out without edit controls and hide content after access is revoked", async () => {
+  auth.userId = null;
+  auth.token = null;
+  let revoked = false;
+  globalThis.fetch = async (_input, init) => {
+    assert.equal(new Headers(init?.headers).has("authorization"), false);
+    return revoked
+      ? Response.json(
+          { error: "This list is private or no longer available." },
+          { status: 404 },
+        )
+      : Response.json({
+          ...listSummary,
+          shared: true,
+          isOwner: false,
+          ownerName: "A friend",
+          items: [{ ...listTitle, id: 1 }],
+        });
+  };
+  await mount(createElement(ListDetail, { id: listId }));
+  await waitFor(() =>
+    assert.match(
+      document.querySelector("h1")?.textContent ?? "",
+      /Weekend picks/,
+    ),
+  );
+  assert.ok(document.querySelector('a[href="/movie?id=42"]'));
+  assert.doesNotMatch(
+    document.body.textContent ?? "",
+    /Edit list|Delete list|Remove/,
+  );
+  await click("Copy share link");
+  assert.equal(
+    document.querySelector<HTMLInputElement>("input[readonly]")?.value,
+    `https://next-watch.test/lists/${listId}`,
+  );
+  revoked = true;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ["lists"] });
+  });
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /private or no longer/,
+    ),
+  );
+  assert.doesNotMatch(
+    document.body.textContent ?? "",
+    /Weekend picks|Example movie/,
+  );
+});
+
+test("list owners can edit sharing and remove titles with retryable failures", async () => {
+  let list = {
+    ...listSummary,
+    isOwner: true,
+    ownerName: "You",
+    items: [{ ...listTitle, id: 1 }],
+  };
+  let fail = true;
+  let deletes = 0;
+  globalThis.fetch = async (_input, init) => {
+    if (init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      if (fail)
+        return Response.json(
+          { error: "Changes were not saved" },
+          { status: 503 },
+        );
+      if (body.action === "update")
+        list = {
+          ...list,
+          title: body.title,
+          description: body.description,
+          shared: body.shared,
+        };
+      if (body.action === "remove") list = { ...list, items: [] };
+      if (body.action === "delete") deletes++;
+      return Response.json({ ok: true });
+    }
+    return Response.json(list);
+  };
+  await mount(createElement(ListDetail, { id: listId }));
+  await waitFor(() =>
+    assert.match(
+      document.querySelector("h1")?.textContent ?? "",
+      /Weekend picks/,
+    ),
+  );
+  await click("Edit list");
+  listFormValue("title", "Renamed list");
+  document.querySelector<HTMLInputElement>('[name="shared"]')!.checked = true;
+  await submitListForm();
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /not saved/,
+    ),
+  );
+  assert.equal(
+    document.querySelector<HTMLInputElement>('[name="title"]')?.value,
+    "Renamed list",
+  );
+  fail = false;
+  await submitListForm();
+  await waitFor(() => assert.equal(document.querySelector("form"), null));
+  assert.match(document.querySelector("h1")?.textContent ?? "", /Renamed list/);
+  assert.ok(button("Copy share link"));
+  fail = true;
+  await click("Remove Example movie from list");
+  await waitFor(() =>
+    assert.match(
+      document.querySelector('[role="alert"]')?.textContent ?? "",
+      /not saved/,
+    ),
+  );
+  assert.ok(document.querySelector('a[href="/movie?id=42"]'));
+  fail = false;
+  await click("Remove Example movie from list");
+  await waitFor(() =>
+    assert.equal(document.querySelector('a[href="/movie?id=42"]'), null),
+  );
+  await click("Delete list");
+  await click("Cancel");
+  assert.equal(deletes, 0);
+  await click("Delete list");
+  await click("Delete permanently");
+  await waitFor(() =>
+    assert.match(
+      document.querySelector("h1")?.textContent ?? "",
+      /List deleted/,
+    ),
+  );
+  assert.equal(deletes, 1);
 });

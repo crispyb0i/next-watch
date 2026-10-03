@@ -14,6 +14,7 @@ import QueryProvider from "./QueryProvider";
 import WatchLogButton from "./WatchLogButton";
 import FavoriteButton from "./FavoriteButton";
 import ReviewButton from "./ReviewButton";
+import AddToListButton from "./AddToListButton";
 import { DetailSkeleton } from "./Skeleton";
 
 const airedYet = (airDate: string | null) =>
@@ -103,7 +104,7 @@ function EpisodeRow({
           {episode.runtime && <span>{episode.runtime} min</span>}
           {episode.vote_average > 0 && (
             <span className="text-star">
-              ★ {episode.vote_average.toFixed(1)}
+              ★ {(episode.vote_average / 2).toFixed(1)}/5
             </span>
           )}
         </p>
@@ -221,6 +222,16 @@ function SeasonDetailInner({
           >
             <FavoriteButton item={savedSeason} />
             <FavoriteButton item={{ ...savedSeason, kind: "watchlist" }} />
+            <AddToListButton
+              item={{
+                tmdbId: tvId,
+                mediaType: "tv",
+                season: season.season_number,
+                title: seasonTitle,
+                poster,
+                subtitle: savedSeason.subtitle,
+              }}
+            />
             <ReviewButton
               item={{
                 tmdbId: tvId,

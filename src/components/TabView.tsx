@@ -9,6 +9,7 @@ const Watched = lazy(() => import("./Watched"));
 const Favorites = lazy(() => import("./Favorites"));
 const Alerts = lazy(() => import("./AvailabilityAlerts"));
 const Library = lazy(() => import("./LibraryTransfer"));
+const Lists = lazy(() => import("./Lists"));
 
 type Props = {
   page:
@@ -21,6 +22,7 @@ type Props = {
     | "favorites"
     | "watchlist"
     | "alerts"
+    | "lists"
     | "library";
   fallback?: ReactNode;
   initialQuery?: string;
@@ -43,6 +45,7 @@ export default function TabView({ page, fallback, ...search }: Props) {
     watchlist: Favorites,
     alerts: Alerts,
     library: Library,
+    lists: Lists,
   }[page];
 
   return (

@@ -1,0 +1,13 @@
+---
+import TabView from "../components/TabView";
+import Layout from "../layouts/Layout.astro";
+import "../styles/global.css";
+---
+
+<Layout title="Your lists — Next Watch" noindex>
+  <TabView page="lists" client:only="react" transition:persist="tab-content">
+    <p slot="fallback" role="status">
+      Loading your lists…
+    </p>
+  </TabView>
+</Layout>
