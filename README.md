@@ -107,6 +107,31 @@ light/dark appearance, and reduced motion.
 
 ## New account features
 
+- **Personal homepage and viewing statuses**: signed-in visitors see a personal
+  greeting and Currently watching above Trending. Shows can be Want to watch,
+  Watching, Paused, Finished, or Dropped; homepage filters keep every state
+  accessible. Existing TV logs populate the section automatically. Cards link
+  to the next aired, unwatched episode, show season progress and runtime, and
+  support marking an episode watched with undo. Cards use complete portrait
+  posters and a single-arrow status dropdown, with two columns on desktop and
+  one on mobile. Their order stays stable during the current visit when logging,
+  undoing, or refreshing data; new shows append after existing cards.
+  Caught up is calculated from
+  aired regular episodes and does not change the saved status. Specials remain
+  available on season pages. Missing dates and failed requests never mark a
+  show caught up. Caught-up shows offer **Mark finished** to dismiss them from
+  Currently watching; they remain in the Finished tab and can return to Watching.
+  Finished is a personal status, not a bulk episode log.
+  Status changes preserve viewing history; paused and dropped shows stay out
+  of Currently watching. Logging history does not resume paused, dropped, or
+  finished shows. Want to watch shares the existing whole-show watchlist;
+  moving to another state removes that entry while preserving season watchlists
+  and favorites. Statuses are private and are currently separate from version-1
+  library exports; imported viewing history still supplies initial progress.
+  Apply `drizzle/0019_viewing_statuses.sql` with `npm run db:migrate` before
+  deploying. Default tests apply it only to isolated in-memory PostgreSQL and
+  cover ownership, validation, rollback, history preservation, account changes,
+  failed saves, retries, and undo. Production migration requires explicit approval.
 - **Custom lists** (`/lists`): create named movie and TV collections with an
   optional description. Use “Add to list” on movie, show, season, or episode
   detail pages to choose a list or create one with that title already included.

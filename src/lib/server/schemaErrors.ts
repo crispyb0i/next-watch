@@ -12,7 +12,10 @@ export function isMissingSchema(error: unknown): boolean {
   return false;
 }
 
-export function withSchemaAvailability(handler: APIRoute): APIRoute {
+export function withSchemaAvailability(
+  handler: APIRoute,
+  message = "Streaming settings are temporarily unavailable. Please try again later.",
+): APIRoute {
   return async (context) => {
     try {
       return await handler(context);
@@ -20,8 +23,7 @@ export function withSchemaAvailability(handler: APIRoute): APIRoute {
       if (!isMissingSchema(error)) throw error;
       return Response.json(
         {
-          error:
-            "Streaming settings are temporarily unavailable. Please try again later.",
+          error: message,
         },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );

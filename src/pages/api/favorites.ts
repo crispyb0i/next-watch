@@ -2,7 +2,7 @@ import { mediaHref, validSavedSeason } from "../../lib/mediaHref";
 import type { APIRoute } from "astro";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { favorites } from "../../db/schema";
+import { favorites, showStatuses } from "../../db/schema";
 import { sessionUserId, syncUser } from "../../lib/auth/server";
 
 export const prerender = false;
@@ -78,7 +78,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!(await syncUser(request, id))) {
     return json({ error: "token is missing an email claim" }, 403);
   }
-  await db
+  const save = db
     .insert(favorites)
     .values({
       userId: id,
@@ -93,6 +93,27 @@ export const POST: APIRoute = async ({ request }) => {
       href: mediaHref(item.href, mediaType, Number(item.tmdbId), season),
     })
     .onConflictDoNothing();
+
+  if (mediaType === "tv" && kind === "watchlist" && season == null) {
+    const value = {
+      userId: id,
+      tmdbId: Number(item.tmdbId),
+      status: "want_to_watch" as const,
+      title: item.title.slice(0, 300).trim() || `Show #${item.tmdbId}`,
+      poster: typeof item.poster === "string" ? item.poster : null,
+      updatedAt: new Date(),
+    };
+    await db.batch([
+      save,
+      db
+        .insert(showStatuses)
+        .values(value)
+        .onConflictDoUpdate({
+          target: [showStatuses.userId, showStatuses.tmdbId],
+          set: value,
+        }),
+    ]);
+  } else await save;
 
   return json({ ok: true }, 201);
 };
@@ -113,7 +134,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!validSavedSeason(season, mediaType))
     return json({ error: "Invalid season" }, 400);
 
-  await db
+  const remove = db
     .delete(favorites)
     .where(
       and(
@@ -124,6 +145,21 @@ export const DELETE: APIRoute = async ({ request, url }) => {
         eq(favorites.season, season ?? -1),
       ),
     );
+
+  if (mediaType === "tv" && kind === "watchlist" && season == null) {
+    await db.batch([
+      remove,
+      db
+        .delete(showStatuses)
+        .where(
+          and(
+            eq(showStatuses.userId, id),
+            eq(showStatuses.tmdbId, tmdbId),
+            eq(showStatuses.status, "want_to_watch"),
+          ),
+        ),
+    ]);
+  } else await remove;
 
   return json({ ok: true });
 };

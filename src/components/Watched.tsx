@@ -60,6 +60,7 @@ function Entry({ entry }: { entry: WatchEntry }) {
       await remove(entry.id);
       void queryClient.invalidateQueries({ queryKey: ["watched"] });
       void queryClient.invalidateQueries({ queryKey: ["progress"] });
+      void queryClient.invalidateQueries({ queryKey: ["viewing-shows"] });
       notify("Removed from your watch log.");
       confirmDialog.current?.close();
     } catch (error) {

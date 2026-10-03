@@ -52,6 +52,7 @@ const routes = await Promise.all(
     "alerts",
     "taste",
     "progress",
+    "viewing-status",
     "library",
   ].map((name) => import(`../pages/api/${name}.ts`)),
 );
@@ -71,7 +72,7 @@ for (const route of routes) {
 assert.equal(reads, 0);
 assert.equal(writes, 0);
 authenticated = true;
-for (const name of ["nights", "alerts", "library"]) {
+for (const name of ["nights", "alerts", "library", "viewing-status"]) {
   const route = await import(`../pages/api/${name}.ts`);
   const request = new Request("https://app.invalid/api/test", {
     method: "POST",

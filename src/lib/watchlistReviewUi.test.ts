@@ -47,6 +47,11 @@ const sourceRoot = new URL("../", import.meta.url).href;
 registerHooks({
   resolve(specifier, context, next) {
     if (context.parentURL?.startsWith(sourceRoot)) {
+      if (specifier.endsWith(".module.css"))
+        return {
+          url: `data:text/javascript,${encodeURIComponent("export default new Proxy({}, { get: (_, name) => name });")}`,
+          shortCircuit: true,
+        };
       if (specifier.endsWith("auth/client"))
         return {
           url: `data:text/javascript,${encodeURIComponent("export const getJWTToken = async () => globalThis.__nextWatchUiAuth.token; export const authClient = { useSession: () => { const auth = globalThis.__nextWatchUiAuth; return { data: auth.userId ? { user: { id: auth.userId } } : null, isPending: auth.pending }; } };")}`,
@@ -67,17 +72,25 @@ registerHooks({
     return next(specifier, context);
   },
   load(url, context, next) {
-    if (url.startsWith(sourceRoot) && url.endsWith(".tsx"))
+    if (
+      url.startsWith(sourceRoot) &&
+      (url.endsWith(".tsx") || url.endsWith("/lib/tmdb.ts"))
+    )
       return {
         format: "module",
-        source: ts.transpileModule(readFileSync(new URL(url), "utf8"), {
-          fileName: url,
-          compilerOptions: {
-            jsx: ts.JsxEmit.ReactJSX,
-            module: ts.ModuleKind.ESNext,
-            target: ts.ScriptTarget.ES2022,
+        source: ts.transpileModule(
+          (url.endsWith("/lib/tmdb.ts")
+            ? "import.meta.env = { SSR: false };\n"
+            : "") + readFileSync(new URL(url), "utf8"),
+          {
+            fileName: url,
+            compilerOptions: {
+              jsx: ts.JsxEmit.ReactJSX,
+              module: ts.ModuleKind.ESNext,
+              target: ts.ScriptTarget.ES2022,
+            },
           },
-        }).outputText,
+        ).outputText,
         shortCircuit: true,
       };
     return next(url, context);
@@ -94,6 +107,9 @@ const { default: AddToListButton } =
   await import("../components/AddToListButton.tsx");
 const { default: ListDetail } = await import("../components/ListDetail.tsx");
 const { default: Favorites } = await import("../components/Favorites.tsx");
+const { default: CurrentlyWatching } =
+  await import("../components/CurrentlyWatching.tsx");
+const { default: Home } = await import("../components/Home.tsx");
 const { default: SeasonDetail } =
   await import("../components/SeasonDetail.tsx");
 const { default: EpisodeDetail } =
@@ -233,6 +249,464 @@ afterEach(async () => {
   _resetForTest([]);
 });
 after(() => dom.window.close());
+
+test("currently watching finds the next episode, logs it, catches up and supports undo", async () => {
+  let entries = [{ season: 1, episode: 1 }];
+  let failSave = true;
+  let failUndo = true;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "/api/viewing-status")
+      return Response.json([
+        {
+          tmdbId: 1399,
+          status: "watching",
+          title: show.name,
+          poster: null,
+          updatedAt: "2025-01-01",
+        },
+      ]);
+    if (url.startsWith("/api/progress")) return Response.json(entries);
+    if (url === "/api/watched" && init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      assert.equal(body.season, 1);
+      assert.equal(body.episode, 2);
+      if (failSave)
+        return Response.json(
+          { error: "Could not save watch." },
+          { status: 503 },
+        );
+      entries = [...entries, { season: 1, episode: 2 }];
+      return Response.json({ ...body, id: 777 });
+    }
+    if (url === "/api/watched?id=777" && init?.method === "DELETE") {
+      if (failUndo) return Response.json({}, { status: 503 });
+      entries = [{ season: 1, episode: 1 }];
+      return Response.json({ ok: true });
+    }
+    const path = new URL(url, "https://app.invalid").searchParams.get("path");
+    if (path === "/tv/1399") return Response.json(show);
+    if (path === "/tv/1399/season/1") return Response.json(season);
+    throw new Error(`Unexpected request ${url}`);
+  };
+  await mount(createElement(CurrentlyWatching));
+  await waitFor(() => assert.ok(button("Mark S01E02 watched")));
+  const progressBar = document.querySelector('[role="progressbar"]');
+  assert.equal(progressBar?.getAttribute("aria-valuenow"), "1");
+  assert.equal(progressBar?.getAttribute("aria-valuemax"), "2");
+  assert.equal(
+    progressBar?.getAttribute("aria-label"),
+    `${show.name} season progress`,
+  );
+  assert.match(
+    document.body.textContent ?? "",
+    /1 of 2 aired episodes watched/,
+  );
+  assert.ok(
+    document.querySelector('a[href="/tv/episode?id=1399&season=1&episode=2"]'),
+  );
+  await click("Mark S01E02 watched");
+  await waitFor(() =>
+    assert.match(document.body.textContent ?? "", /Could not save watch/),
+  );
+  assert.equal(entries.length, 1);
+  failSave = false;
+  await click("Mark S01E02 watched");
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /You’ve watched every aired episode/,
+    ),
+  );
+  assert.equal(
+    document.querySelector("select")?.value,
+    "watching",
+    "caught up never overwrites a personal viewing status",
+  );
+  await click("Undo");
+  await waitFor(() =>
+    assert.match(document.body.textContent ?? "", /Could not undo this watch/),
+  );
+  failUndo = false;
+  await click("Undo");
+  await waitFor(() => assert.ok(button("Mark S01E02 watched")));
+  assert.equal(entries.length, 1);
+});
+
+test("watching cards keep their positions after logging, undo and refetches without sharing order across accounts", async () => {
+  const initialShows = Array.from({ length: 6 }, (_, index) => ({
+    tmdbId: 91001 + index,
+    title: `Show ${index + 1}`,
+    status: "watching",
+    poster: null,
+    updatedAt: "2025-01-01",
+  }));
+  let serverRows = [...initialShows];
+  let entries: { season: number; episode: number }[] = [];
+  const target = initialShows[3];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "/api/viewing-status") return Response.json(serverRows);
+    if (url.startsWith("/api/progress"))
+      return Response.json(url.endsWith(String(target.tmdbId)) ? entries : []);
+    if (url === "/api/watched" && init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      assert.equal(body.tmdbId, target.tmdbId);
+      entries = [{ season: body.season, episode: body.episode }];
+      serverRows = [
+        target,
+        ...serverRows.filter((row) => row.tmdbId !== target.tmdbId),
+      ];
+      return Response.json({ ...body, id: 777 });
+    }
+    if (url === "/api/watched?id=777" && init?.method === "DELETE") {
+      entries = [];
+      serverRows = [...serverRows].reverse();
+      return Response.json({ ok: true });
+    }
+    const path = new URL(url, "https://app.invalid").searchParams.get("path");
+    const row = serverRows.find((item) => path === `/tv/${item.tmdbId}`);
+    if (row) return Response.json({ ...show, id: row.tmdbId, name: row.title });
+    if (path?.endsWith("/season/1")) return Response.json(season);
+    throw new Error(`Unexpected request ${url}`);
+  };
+  const titles = () =>
+    [...document.querySelectorAll("h3")].map((item) => item.textContent);
+  const originalTitles = initialShows.map((item) => item.title);
+  await mount(createElement(CurrentlyWatching));
+  await waitFor(() =>
+    assert.equal(document.querySelectorAll('[role="progressbar"]').length, 6),
+  );
+  assert.deepEqual(titles(), originalTitles);
+  const card = document.querySelectorAll("h3")[3].closest("li")!;
+  const mark = [...card.querySelectorAll("button")].find(
+    (item) => item.textContent === "Mark S01E01 watched",
+  )!;
+  await act(async () => mark.click());
+  await waitFor(() =>
+    assert.match(card.textContent ?? "", /Marked S01E01 watched/),
+  );
+  await waitFor(() => assert.match(card.textContent ?? "", /Up next: S01E02/));
+  assert.equal(
+    serverRows[0].tmdbId,
+    target.tmdbId,
+    "the API really did move the watched show first",
+  );
+  await waitFor(() =>
+    assert.equal(
+      client.getQueryData<{ tmdbId: number }[]>([
+        "viewing-shows",
+        auth.userId,
+      ])?.[0].tmdbId,
+      target.tmdbId,
+    ),
+  );
+  assert.deepEqual(titles(), originalTitles);
+  assert.equal(document.querySelectorAll("h3")[3].closest("li"), card);
+  await click("Undo");
+  await waitFor(() => assert.match(card.textContent ?? "", /Up next: S01E01/));
+  await waitFor(() =>
+    assert.equal(
+      client.getQueryData<{ tmdbId: number }[]>([
+        "viewing-shows",
+        auth.userId,
+      ])?.[0].tmdbId,
+      serverRows[0].tmdbId,
+    ),
+  );
+  assert.deepEqual(titles(), originalTitles);
+
+  const added = { ...initialShows[0], tmdbId: 91007, title: "New show" };
+  serverRows = [added, ...serverRows];
+  await act(async () => {
+    await client.invalidateQueries({
+      queryKey: ["viewing-shows", auth.userId],
+    });
+  });
+  await waitFor(() => assert.ok(button("Show more")));
+  assert.deepEqual(
+    titles(),
+    originalTitles,
+    "a new show must not displace one of the six visible cards",
+  );
+  await click("Show more");
+  await waitFor(() =>
+    assert.deepEqual(titles(), [...originalTitles, added.title]),
+  );
+
+  serverRows = serverRows.map((row) =>
+    row.tmdbId === target.tmdbId ? { ...row, status: "finished" } : row,
+  );
+  await act(async () => {
+    await client.invalidateQueries({
+      queryKey: ["viewing-shows", auth.userId],
+    });
+  });
+  await waitFor(() =>
+    assert.deepEqual(titles(), [
+      ...originalTitles.filter((title) => title !== target.title),
+      added.title,
+    ]),
+  );
+  await click("Finished1");
+  await waitFor(() => assert.deepEqual(titles(), [target.title]));
+  await click("Watching6");
+  assert.deepEqual(titles(), [
+    ...originalTitles.filter((title) => title !== target.title),
+    added.title,
+  ]);
+
+  serverRows = [initialShows[1], initialShows[0]];
+  auth.userId = "another-user";
+  await render(createElement(CurrentlyWatching));
+  await waitFor(() =>
+    assert.deepEqual(titles(), [initialShows[1].title, initialShows[0].title]),
+  );
+});
+
+test("caught-up shows can be dismissed to Finished, retry failed saves and return without changing viewing history", async () => {
+  let status = "watching";
+  let failSave = true;
+  const entries = [
+    { season: 1, episode: 1 },
+    { season: 1, episode: 2 },
+  ];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "/api/viewing-status") {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        assert.equal(body.tmdbId, 1399);
+        if (failSave)
+          return Response.json(
+            { error: "Could not save status." },
+            { status: 503 },
+          );
+        status = body.status;
+        return Response.json({ ok: true });
+      }
+      return Response.json([
+        {
+          tmdbId: 1399,
+          status,
+          title: show.name,
+          poster: null,
+          updatedAt: "2025-01-01",
+        },
+      ]);
+    }
+    if (url === "/api/favorites") return Response.json([]);
+    if (url.startsWith("/api/progress")) return Response.json(entries);
+    const path = new URL(url, "https://app.invalid").searchParams.get("path");
+    if (path === "/tv/1399") return Response.json(show);
+    if (path === "/tv/1399/season/1") return Response.json(season);
+    throw new Error(`Unexpected request ${url}`);
+  };
+  await mount(createElement(CurrentlyWatching));
+  await waitFor(() => assert.ok(button("Mark finished")));
+  await click("Mark finished");
+  await waitFor(() =>
+    assert.match(document.body.textContent ?? "", /Could not save status/),
+  );
+  assert.equal(status, "watching");
+  assert.equal(document.querySelector("h3")?.textContent, show.name);
+  assert.equal(button("Mark finished").disabled, false);
+
+  failSave = false;
+  await click("Mark finished");
+  await waitFor(() => assert.ok(button("Finished1")));
+  assert.equal(status, "finished");
+  assert.equal(document.querySelector("h3"), null);
+  assert.ok(button("Watching0"));
+  await click("Finished1");
+  await waitFor(() =>
+    assert.equal(document.querySelector("select")?.value, "finished"),
+  );
+  assert.equal(document.querySelector("h3")?.textContent, show.name);
+  assert.equal(
+    [...document.querySelectorAll("button")].some(
+      (item) => item.textContent === "Mark finished",
+    ),
+    false,
+  );
+  await act(async () => {
+    const select = document.querySelector("select")!;
+    select.value = "watching";
+    select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  });
+  await waitFor(() => assert.ok(button("Watching1")));
+  await click("Watching1");
+  await waitFor(() => assert.ok(button("Mark finished")));
+  assert.match(document.body.textContent ?? "", /Caught up/);
+  assert.deepEqual(entries, [
+    { season: 1, episode: 1 },
+    { season: 1, episode: 2 },
+  ]);
+});
+
+test("viewing status failures preserve the current selection, paused shows can resume, and accounts stay isolated", async () => {
+  let status = "watching";
+  let fail = true;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "/api/viewing-status") {
+      if (init?.method === "POST") {
+        if (fail)
+          return Response.json(
+            { error: "Could not save status." },
+            { status: 503 },
+          );
+        status = JSON.parse(String(init.body)).status;
+        return Response.json({ ok: true });
+      }
+      return Response.json(
+        auth.userId === "test-user"
+          ? [
+              {
+                tmdbId: 1399,
+                status,
+                title: show.name,
+                poster: null,
+                updatedAt: "2025-01-01",
+              },
+            ]
+          : [],
+      );
+    }
+    if (url === "/api/favorites") return Response.json([]);
+    if (url.startsWith("/api/progress")) return Response.json([]);
+    const path = new URL(url, "https://app.invalid").searchParams.get("path");
+    if (path === "/tv/1399") return Response.json(show);
+    if (path === "/tv/1399/season/1") return Response.json(season);
+    throw new Error(`Unexpected request ${url}`);
+  };
+  const selectStatus = async (value: string) =>
+    act(async () => {
+      const select = document.querySelector("select")!;
+      select.value = value;
+      select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    });
+  await mount(createElement(CurrentlyWatching));
+  await waitFor(() =>
+    assert.equal(document.querySelector("select")?.value, "watching"),
+  );
+  await selectStatus("paused");
+  await waitFor(() =>
+    assert.match(document.body.textContent ?? "", /Could not save status/),
+  );
+  assert.equal(document.querySelector("select")?.value, "watching");
+  fail = false;
+  await selectStatus("paused");
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /Your next episode belongs here/,
+    ),
+  );
+  await click("Paused1");
+  await waitFor(() =>
+    assert.equal(document.querySelector("select")?.value, "paused"),
+  );
+  assert.equal(
+    [...document.querySelectorAll("button")].some((el) =>
+      /Mark S/.test(el.textContent ?? ""),
+    ),
+    false,
+  );
+  await selectStatus("watching");
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /Shows you pause will stay here/,
+    ),
+  );
+  await click("Watching1");
+  await waitFor(() => assert.ok(document.querySelector("h3")));
+  auth.userId = "another-user";
+  await render(createElement(CurrentlyWatching));
+  assert.equal(document.querySelector("h3"), null);
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /Your next episode belongs here/,
+    ),
+  );
+  auth.userId = null;
+  await render(createElement(CurrentlyWatching));
+  assert.equal(document.querySelector("section"), null);
+});
+
+test("homepage keeps public discovery, personalizes signed-in visits, and retries a failed show list", async () => {
+  auth.userId = null;
+  auth.token = null;
+  let fail = true;
+  let personalRequests = 0;
+  globalThis.fetch = async (input) => {
+    if (String(input) === "/api/viewing-status") {
+      personalRequests++;
+      return fail
+        ? Response.json({ error: "Unavailable" }, { status: 503 })
+        : Response.json([]);
+    }
+    return Response.json({ results: [] });
+  };
+  await mount(createElement(Home));
+  assert.match(
+    document.querySelector("h1")?.textContent ?? "",
+    /Find your next/,
+  );
+  assert.equal(personalRequests, 0);
+  auth.userId = "test-user";
+  auth.token = "test-token";
+  await render(createElement(Home));
+  await waitFor(() =>
+    assert.match(document.body.textContent ?? "", /Could not load your shows/),
+  );
+  assert.equal(document.querySelector("h1")?.textContent, "What’s next?");
+  assert.match(document.body.textContent ?? "", /Trending/);
+  fail = false;
+  await click("Try again");
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /Your next episode belongs here/,
+    ),
+  );
+});
+
+test("failed episode lookup is retryable and cannot show caught up or offer a watch action", async () => {
+  let fail = true;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url === "/api/viewing-status")
+      return Response.json([
+        {
+          tmdbId: 1399,
+          status: "watching",
+          title: show.name,
+          poster: null,
+          updatedAt: "2025-01-01",
+        },
+      ]);
+    if (url.startsWith("/api/progress")) return Response.json([]);
+    const path = new URL(url, "https://app.invalid").searchParams.get("path");
+    if (path === "/tv/1399") return Response.json(show);
+    if (path === "/tv/1399/season/1")
+      return fail ? Response.json({}, { status: 503 }) : Response.json(season);
+    throw new Error(`Unexpected request ${url}`);
+  };
+  await mount(createElement(CurrentlyWatching));
+  await waitFor(() =>
+    assert.match(
+      document.body.textContent ?? "",
+      /Could not load show details/,
+    ),
+  );
+  assert.doesNotMatch(document.body.textContent ?? "", /Caught up|Mark S01/);
+  fail = false;
+  await click("Retry");
+  await waitFor(() => assert.ok(button("Mark S01E01 watched")));
+});
 
 const watchedEpisode = {
   id: 401,
