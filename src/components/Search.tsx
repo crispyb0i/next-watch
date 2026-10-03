@@ -82,24 +82,24 @@ function SearchInner({
   return (
     <div className="w-full">
       <div className="mx-auto w-full max-w-2xl">
-        <h1 className="text-text-primary mb-6 text-2xl font-extrabold tracking-tight">
+        <h1 className="text-text-primary mb-4 text-2xl font-extrabold tracking-tight sm:mb-6">
           Search
         </h1>
         <SearchBox initialQuery={initialQuery} tab={activeTab} />
         <div
           role="group"
           aria-label="Result type"
-          className="mt-4 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-center"
+          className="border-border/60 bg-surface-muted/50 mt-3 grid grid-cols-5 gap-1 rounded-2xl border p-1 sm:mt-4 sm:flex sm:flex-wrap sm:justify-center sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0"
         >
           {TABS.map(([value, label]) => (
             <a
               key={value}
               aria-current={activeTab === value ? "page" : undefined}
               href={`/search?${new URLSearchParams({ q: value === "users" ? submitted : term, tab: value })}`}
-              className={`shrink-0 rounded-full border px-4 py-2 text-center text-sm whitespace-nowrap transition ${
+              className={`focus-visible:outline-accent flex min-h-11 min-w-0 items-center justify-center rounded-xl border px-1 py-2 text-xs font-medium whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 sm:rounded-full sm:px-4 sm:text-sm ${
                 activeTab === value
-                  ? "border-accent bg-accent/15 text-accent"
-                  : "border-border/60 text-text-muted hover:text-text-primary"
+                  ? "border-accent/30 bg-accent/20 text-accent-hover sm:border-accent sm:bg-accent/15 sm:text-accent"
+                  : "text-text-muted hover:text-text-primary sm:border-border/60 border-transparent"
               }`}
             >
               {label}
@@ -141,7 +141,7 @@ function SearchInner({
       </div>
 
       {isSearchActive && isFetching && !count && (
-        <div className="mt-10">
+        <div className="mt-6 sm:mt-10">
           <PosterGridSkeleton count={20} className="mt-0" />
         </div>
       )}
@@ -149,7 +149,7 @@ function SearchInner({
       {activeTab === "users" && users.length > 0 && (
         <ul
           aria-busy={isFetching}
-          className="mx-auto mt-10 grid w-full max-w-2xl gap-3"
+          className="mx-auto mt-6 grid w-full max-w-2xl gap-3 sm:mt-10"
         >
           {users.map((user) => (
             <li key={user.id}>
@@ -183,7 +183,7 @@ function SearchInner({
       {activeTab !== "users" && results.length > 0 && (
         <ul
           aria-busy={isFetching}
-          className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+          className="mt-6 grid grid-cols-2 gap-5 sm:mt-10 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
         >
           {results.map((item) => (
             <MediaCard
@@ -225,7 +225,7 @@ function SearchInner({
           </nav>
         )}
       {!isSearchActive && (
-        <div className="mt-20">
+        <div className="mt-8 sm:mt-20">
           <Trending />
         </div>
       )}
