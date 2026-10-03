@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { ReviewNode } from "../lib/reviewDocument";
+import type { ViewingStatus } from "../lib/viewingStatus";
 import {
   boolean,
   check,
@@ -23,6 +24,33 @@ export const users = pgTable("users", {
   image: text("image"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+/** Personal series state; changing it never changes episode history. */
+export const showStatuses = pgTable(
+  "show_statuses",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id").notNull(),
+    status: text("status").$type<ViewingStatus>().notNull(),
+    title: text("title").notNull(),
+    poster: text("poster"),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.tmdbId] }),
+    check("show_statuses_id_check", sql`${table.tmdbId} > 0`),
+    check(
+      "show_statuses_status_check",
+      sql`${table.status} in ('want_to_watch', 'watching', 'paused', 'finished', 'dropped')`,
+    ),
+    check(
+      "show_statuses_title_check",
+      sql`length(trim(${table.title})) between 1 and 300`,
+    ),
+  ],
+);
 
 export const customLists = pgTable(
   "custom_lists",

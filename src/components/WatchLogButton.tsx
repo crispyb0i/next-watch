@@ -2,7 +2,7 @@ import { useId, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getJWTToken } from "../lib/auth/client";
 import { todayISO, type WatchEntryInput } from "../lib/watchLog";
-import { isFavorite, toggleFavorite } from "../lib/favorites";
+import { isFavorite, toggleFavorite, reloadFavorites } from "../lib/favorites";
 import { notify } from "../lib/notifications";
 import { requireAuth } from "../lib/auth/gate";
 import QueryProvider from "./QueryProvider";
@@ -69,11 +69,18 @@ export function LogForm({
     onSuccess: (_data, entry) => {
       void queryClient.invalidateQueries({ queryKey: ["watched"] });
       void queryClient.invalidateQueries({ queryKey: ["progress"] });
+      void queryClient.invalidateQueries({ queryKey: ["viewing-shows"] });
+      if (
+        entry.mediaType === "tv" &&
+        isFavorite(entry.tmdbId, "tv", "watchlist")
+      )
+        void reloadFavorites();
       // Watched it, so it is no longer something to watch. Edits leave the list
       // alone.
       const mediaType = entry.mediaType ?? "movie";
       if (
         !editing &&
+        mediaType === "movie" &&
         entry.season == null &&
         entry.episode == null &&
         isFavorite(entry.tmdbId, mediaType, "watchlist")

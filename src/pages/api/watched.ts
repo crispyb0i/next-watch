@@ -1,8 +1,8 @@
 import { pagination } from "../../lib/pagination";
 import type { APIRoute } from "astro";
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, lt, inArray } from "drizzle-orm";
 import { db } from "../../db";
-import { watchLog } from "../../db/schema";
+import { watchLog, showStatuses, favorites } from "../../db/schema";
 import { sessionUserId, syncUser } from "../../lib/auth/server";
 import { parseEntry } from "../../lib/watchLog";
 
@@ -84,10 +84,48 @@ export const POST: APIRoute = async ({ request }) => {
   if (!(await syncUser(request, id))) {
     return json({ error: "token is missing an email claim" }, 403);
   }
-  const [row] = await db
+  const insert = db
     .insert(watchLog)
     .values({ userId: id, ...parsed.value })
     .returning(columns);
+
+  if (parsed.value.mediaType === "tv") {
+    const entry = parsed.value;
+    const value = {
+      userId: id,
+      tmdbId: entry.tmdbId,
+      status:
+        entry.season === null ? ("finished" as const) : ("watching" as const),
+      title: entry.title,
+      poster: entry.poster,
+      updatedAt: new Date(),
+    };
+    const [rows] = await db.batch([
+      insert,
+      db
+        .insert(showStatuses)
+        .values(value)
+        .onConflictDoUpdate({
+          target: [showStatuses.userId, showStatuses.tmdbId],
+          set: { status: value.status, updatedAt: value.updatedAt },
+          // Logging history never resumes a show the user deliberately set aside.
+          setWhere: inArray(showStatuses.status, ["want_to_watch", "watching"]),
+        }),
+      db
+        .delete(favorites)
+        .where(
+          and(
+            eq(favorites.userId, id),
+            eq(favorites.tmdbId, entry.tmdbId),
+            eq(favorites.mediaType, "tv"),
+            eq(favorites.kind, "watchlist"),
+            eq(favorites.season, -1),
+          ),
+        ),
+    ]);
+    return json(rows[0], 201);
+  }
+  const [row] = await insert;
 
   return json(row, 201);
 };

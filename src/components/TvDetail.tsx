@@ -1,4 +1,5 @@
 import ShowProgress from "./ShowProgress";
+import ViewingStatusControl from "./ViewingStatusControl";
 import type { TvShowDetails } from "../lib/tmdb";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -131,23 +132,26 @@ function TvDetailInner({
       }
       actions={
         <>
-          {(["watchlist", "favorite"] as const).map((kind) => (
-            <FavoriteButton
-              compact={kind === "favorite"}
-              primary={kind === "watchlist"}
-              key={kind}
-              item={{
-                id: show.id,
-                mediaType: "tv",
-                kind,
-                title: show.name,
-                poster: posterUrl(show.poster_path),
-                subtitle: show.first_air_date?.slice(0, 4),
-                rating: show.vote_average,
-                href: `/tv?id=${show.id}`,
-              }}
-            />
-          ))}
+          <ViewingStatusControl
+            show={{
+              tmdbId: show.id,
+              title: show.name,
+              poster: posterUrl(show.poster_path),
+            }}
+          />
+          <FavoriteButton
+            compact
+            item={{
+              id: show.id,
+              mediaType: "tv",
+              kind: "favorite",
+              title: show.name,
+              poster: posterUrl(show.poster_path),
+              subtitle: show.first_air_date?.slice(0, 4),
+              rating: show.vote_average,
+              href: `/tv?id=${show.id}`,
+            }}
+          />
           <ReviewButton
             compact
             item={{

@@ -3,12 +3,12 @@ import { authClient } from "../lib/auth/client";
 import { accountApi } from "../lib/accountApi";
 import type { EpisodeProgress } from "../lib/progress";
 import type { Season } from "../lib/tmdb";
-export function useShowProgress(tvId: number) {
+export function useShowProgress(tvId: number, enabled = true) {
   const { data: session } = authClient.useSession();
   return useQuery({
     queryKey: ["progress", session?.user.id, tvId],
     queryFn: () => accountApi<EpisodeProgress[]>(`/api/progress?id=${tvId}`),
-    enabled: Boolean(session),
+    enabled: Boolean(session) && enabled,
   });
 }
 export default function ShowProgress({

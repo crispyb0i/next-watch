@@ -10,6 +10,7 @@ import * as schema from "../db/schema.ts";
 const pg = new PGlite();
 const db = drizzle(pg, { schema });
 let viewer: string | null = "alice";
+let syncAllowed = true;
 let providerIds = [8];
 let upstreamFails = false;
 const testDb = new Proxy(db, {
@@ -33,6 +34,7 @@ const testDb = new Proxy(db, {
 Object.assign(globalThis, {
   __testDb: testDb,
   __viewer: () => viewer,
+  __syncAllowed: () => syncAllowed,
   __tmdb: () => {
     if (upstreamFails) throw new Error("upstream unavailable");
     return {
@@ -61,7 +63,7 @@ registerHooks({
         url:
           "data:text/javascript," +
           encodeURIComponent(
-            `export const sessionUserId=async()=>globalThis.__viewer();export const syncUser=async()=>true;`,
+            `export const sessionUserId=async()=>globalThis.__viewer();export const syncUser=async()=>globalThis.__syncAllowed();`,
           ),
         shortCircuit: true,
       };
@@ -920,6 +922,189 @@ try {
   );
   console.log(
     "Database migrations, ownership, nights, alert transitions, and import retries: passed",
+  );
+
+  const statuses = await import("../pages/api/viewing-status.ts");
+  const statusInput = {
+    tmdbId: 81001,
+    title: "A series",
+    poster: null,
+    status: "watching",
+  };
+  const ownStatus = async (tmdbId = 81001) =>
+    (await (await call(statuses.GET)).json()).find(
+      (entry: any) => entry.tmdbId === tmdbId,
+    );
+  viewer = null;
+  assert.equal((await call(statuses.GET)).status, 401);
+  assert.equal((await call(statuses.POST, statusInput)).status, 401);
+  viewer = "alice";
+  for (const invalid of [
+    null,
+    [],
+    {},
+    { ...statusInput, status: "__proto__" },
+    { ...statusInput, status: "caught_up" },
+    { ...statusInput, tmdbId: 0 },
+    { ...statusInput, tmdbId: 1.5 },
+    { ...statusInput, tmdbId: 2147483648 },
+    { ...statusInput, title: " " },
+    { ...statusInput, title: "a".repeat(301) },
+    { ...statusInput, poster: "javascript:alert(1)" },
+  ]) {
+    assert.equal((await call(statuses.POST, invalid)).status, 400);
+  }
+  syncAllowed = false;
+  assert.equal((await call(statuses.POST, statusInput)).status, 403);
+  syncAllowed = true;
+  assert.equal(
+    (
+      await call(statuses.POST, {
+        ...statusInput,
+        status: "want_to_watch",
+        userId: "bob",
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await ownStatus()).status, "want_to_watch");
+  assert.ok(
+    (await (await call(favoriteApi.GET)).json()).some(
+      (row: any) => row.id === 81001 && row.kind === "watchlist",
+    ),
+  );
+  // Keep season watchlists and favorites independent from the series status.
+  await call(favoriteApi.POST, {
+    tmdbId: 81001,
+    title: "Season 1",
+    mediaType: "tv",
+    season: 1,
+    kind: "watchlist",
+  });
+  await call(favoriteApi.POST, {
+    tmdbId: 81001,
+    title: "A series",
+    mediaType: "tv",
+    kind: "favorite",
+  });
+  const episodeLog = {
+    tmdbId: 81001,
+    mediaType: "tv",
+    title: "A series · Pilot",
+    season: 1,
+    episode: 1,
+    watchedOn: "2025-01-01",
+  };
+  assert.equal((await call(watched.POST, episodeLog)).status, 201);
+  assert.equal((await ownStatus()).status, "watching");
+  const remaining = (await (await call(favoriteApi.GET)).json()).filter(
+    (row: any) => row.id === 81001,
+  );
+  assert.equal(remaining.length, 2);
+  assert.ok(remaining.some((row: any) => row.season === 1));
+  assert.ok(remaining.some((row: any) => row.kind === "favorite"));
+  const history = await db
+    .select()
+    .from(schema.watchLog)
+    .where(eq(schema.watchLog.tmdbId, 81001));
+  for (const status of ["paused", "dropped", "finished", "watching"]) {
+    await call(statuses.POST, { ...statusInput, status });
+    assert.equal((await ownStatus()).status, status);
+    assert.deepEqual(
+      await db
+        .select()
+        .from(schema.watchLog)
+        .where(eq(schema.watchLog.tmdbId, 81001)),
+      history,
+    );
+  }
+  await call(statuses.POST, { ...statusInput, status: "paused" });
+  await call(watched.POST, { ...episodeLog, episode: 2 });
+  assert.equal(
+    (await ownStatus()).status,
+    "paused",
+    "logging history must not silently resume a paused series",
+  );
+  viewer = "bob";
+  assert.equal(await ownStatus(), undefined);
+  await call(statuses.POST, { ...statusInput, status: "dropped" });
+  viewer = "alice";
+  assert.equal((await ownStatus()).status, "paused");
+  await call(favoriteApi.POST, {
+    tmdbId: 81001,
+    title: "A series",
+    mediaType: "tv",
+    kind: "watchlist",
+  });
+  assert.equal((await ownStatus()).status, "want_to_watch");
+  await call(
+    favoriteApi.DELETE,
+    undefined,
+    "?tmdbId=81001&mediaType=tv&kind=watchlist",
+  );
+  assert.equal(
+    (await ownStatus()).status,
+    "watching",
+    "removing a watchlist entry falls back to existing viewing history",
+  );
+  await call(watched.POST, { ...episodeLog, season: null, episode: null });
+  assert.equal((await ownStatus()).status, "finished");
+  // Legacy/imported logs without explicit statuses appear without a backfill.
+  await db
+    .insert(schema.watchLog)
+    .values({ ...episodeLog, tmdbId: 81002, mediaType: "tv", userId: "alice" });
+  assert.equal((await ownStatus(81002)).status, "watching");
+  assert.equal(
+    (await call(statuses.GET)).headers.get("cache-control"),
+    "no-store",
+  );
+  await assert.rejects(() =>
+    db.insert(schema.showStatuses).values({
+      userId: "alice",
+      tmdbId: 81003,
+      title: "Invalid",
+      status: "unknown" as any,
+    }),
+  );
+  // A failed watchlist write must roll the status change back, too.
+  await pg.exec(
+    "CREATE FUNCTION reject_status_fixture() RETURNS trigger AS $$ BEGIN IF NEW.tmdb_id = 81004 THEN RAISE EXCEPTION 'fixture failure'; END IF; RETURN NEW; END; $$ LANGUAGE plpgsql; CREATE TRIGGER reject_status_fixture BEFORE INSERT ON favorites FOR EACH ROW EXECUTE FUNCTION reject_status_fixture();",
+  );
+  await assert.rejects(() =>
+    call(statuses.POST, {
+      ...statusInput,
+      tmdbId: 81004,
+      status: "want_to_watch",
+    }),
+  );
+  assert.equal(await ownStatus(81004), undefined);
+  await pg.exec(
+    "DROP TRIGGER reject_status_fixture ON favorites; DROP FUNCTION reject_status_fixture();",
+  );
+  // A missing migration is recoverable and cannot leave a half-written log.
+  const countBeforeFailure = (await db.select().from(schema.watchLog)).length;
+  await pg.exec(
+    "ALTER TABLE show_statuses RENAME TO unavailable_show_statuses",
+  );
+  const unavailable = await call(statuses.GET);
+  assert.equal(unavailable.status, 503);
+  assert.match(
+    (await unavailable.json()).error,
+    /Viewing statuses are temporarily unavailable/,
+  );
+  assert.equal((await call(statuses.POST, statusInput)).status, 503);
+  await assert.rejects(() =>
+    call(watched.POST, { ...episodeLog, tmdbId: 81005 }),
+  );
+  assert.equal(
+    (await db.select().from(schema.watchLog)).length,
+    countBeforeFailure,
+  );
+  await pg.exec(
+    "ALTER TABLE unavailable_show_statuses RENAME TO show_statuses",
+  );
+  console.log(
+    "Viewing statuses: migration, validation, ownership, history preservation, legacy progress, watchlist synchronization and atomic rollback passed",
   );
 } finally {
   await pg.close();
