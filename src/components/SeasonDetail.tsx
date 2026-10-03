@@ -13,6 +13,7 @@ import {
 import QueryProvider from "./QueryProvider";
 import WatchLogButton from "./WatchLogButton";
 import FavoriteButton from "./FavoriteButton";
+import ReviewButton from "./ReviewButton";
 import { DetailSkeleton } from "./Skeleton";
 
 const airedYet = (airDate: string | null) =>
@@ -112,6 +113,19 @@ function EpisodeRow({
             {episode.overview}
           </p>
         )}
+        <div className="mt-3">
+          <ReviewButton
+            item={{
+              tmdbId: showId,
+              mediaType: "tv",
+              season: episode.season_number,
+              episode: episode.episode_number,
+              title: `${showName} ${code}`,
+              poster,
+              subtitle: episode.name,
+            }}
+          />
+        </div>
       </div>
     </li>
   );
@@ -154,6 +168,16 @@ function SeasonDetailInner({
   const progress = seasonProgress(progressQuery.data ?? [], season.episodes);
   const show = showQuery.data;
   const poster = posterUrl(season.poster_path ?? show.poster_path, "w500");
+  const seasonTitle = `${show.name} · ${season.name}`;
+  const savedSeason = {
+    id: tvId,
+    mediaType: "tv" as const,
+    season: season.season_number,
+    title: seasonTitle,
+    poster,
+    subtitle: `${season.episodes.length} episodes`,
+    href: `/tv/season?id=${tvId}&season=${season.season_number}`,
+  };
 
   return (
     <div className="w-full">
@@ -190,6 +214,24 @@ function SeasonDetailInner({
               {season.episodes.length === 1 ? "" : "s"}
             </span>
           </p>
+          <div
+            role="group"
+            aria-label="Season actions"
+            className="mt-4 flex flex-wrap items-center gap-2"
+          >
+            <FavoriteButton item={savedSeason} />
+            <FavoriteButton item={{ ...savedSeason, kind: "watchlist" }} />
+            <ReviewButton
+              item={{
+                tmdbId: tvId,
+                mediaType: "tv",
+                season: season.season_number,
+                title: seasonTitle,
+                poster,
+                subtitle: savedSeason.subtitle,
+              }}
+            />
+          </div>
           {season.overview && (
             <p className="text-text-muted mt-4 leading-relaxed">
               {season.overview}

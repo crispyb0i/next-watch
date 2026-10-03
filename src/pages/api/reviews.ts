@@ -1,10 +1,14 @@
 import { pagination } from "../../lib/pagination";
 import type { APIRoute } from "astro";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../../db";
 import { reviews } from "../../db/schema";
 import { sessionUserId, syncUser } from "../../lib/auth/server";
-import { parseReview } from "../../lib/reviews";
+import {
+  parseReview,
+  parseReviewTarget,
+  type ReviewInput,
+} from "../../lib/reviews";
 
 export const prerender = false;
 
@@ -22,21 +26,49 @@ const columns = {
   userId: reviews.userId,
   tmdbId: reviews.tmdbId,
   mediaType: reviews.mediaType,
+  season: reviews.season,
+  episode: reviews.episode,
   title: reviews.title,
   poster: reviews.poster,
   subtitle: reviews.subtitle,
   rating: reviews.rating,
   review: reviews.review,
+  document: reviews.document,
+  status: reviews.status,
   createdAt: reviews.createdAt,
   updatedAt: reviews.updatedAt,
 };
 
+const targetFilter = (
+  target: Required<
+    Pick<ReviewInput, "tmdbId" | "mediaType" | "season" | "episode">
+  >,
+) =>
+  and(
+    eq(reviews.tmdbId, target.tmdbId),
+    eq(reviews.mediaType, target.mediaType),
+    target.season === null
+      ? isNull(reviews.season)
+      : eq(reviews.season, target.season),
+    target.episode === null
+      ? isNull(reviews.episode)
+      : eq(reviews.episode, target.episode),
+  );
+
 /** Newest review first, ties broken by insert order. */
-export function listReviews(userId: string) {
+export function listReviews(
+  userId: string,
+  status: "draft" | "published" | "all" = "published",
+) {
   return db
     .select(columns)
     .from(reviews)
-    .where(eq(reviews.userId, userId))
+    .where(
+      and(
+        eq(reviews.userId, userId),
+        status === "all" ? undefined : eq(reviews.status, status),
+      ),
+    )
     .orderBy(desc(reviews.updatedAt), desc(reviews.id));
 }
 
@@ -59,19 +91,34 @@ export const GET: APIRoute = async ({ request, url }) => {
   // Authenticated lookup of the viewer's own review for a title.
   const id = await sessionUserId(request);
   if (!id) return json({ error: "unauthorized" }, 401);
-  if (!Number.isInteger(tmdbId) || tmdbId <= 0)
-    return json({ error: "Invalid tmdbId" }, 400);
+  if (!url.searchParams.has("tmdbId")) {
+    const status = url.searchParams.get("status") ?? "all";
+    if (status !== "all" && status !== "draft" && status !== "published")
+      return json({ error: "Invalid review status" }, 400);
+    let limit: number, offset: number;
+    try {
+      ({ limit, offset } = pagination(url.searchParams));
+    } catch {
+      return json({ error: "Invalid pagination" }, 400);
+    }
+    return json(await listReviews(id, status).limit(limit).offset(offset));
+  }
+  const coordinate = (name: string) =>
+    url.searchParams.has(name)
+      ? Number(url.searchParams.get(name)?.trim() || NaN)
+      : null;
+  const target = parseReviewTarget({
+    tmdbId,
+    mediaType,
+    season: coordinate("season"),
+    episode: coordinate("episode"),
+  });
+  if (!target.ok) return json({ error: target.error }, 400);
 
   const [row] = await db
     .select(columns)
     .from(reviews)
-    .where(
-      and(
-        eq(reviews.userId, id),
-        eq(reviews.tmdbId, tmdbId),
-        eq(reviews.mediaType, mediaType === "tv" ? "tv" : "movie"),
-      ),
-    )
+    .where(and(eq(reviews.userId, id), targetFilter(target.value)))
     .limit(1);
   return json(row ?? null);
 };
@@ -101,9 +148,23 @@ export const POST: APIRoute = async ({ request }) => {
       .returning(columns);
     return json(row, 201);
   } catch (error) {
-    // Unique violation on (userId, tmdbId, mediaType).
-    if (error instanceof Error && error.message.includes("23505")) {
-      return json({ error: "You already reviewed this title." }, 409);
+    // Only one review or draft per user and movie/show/season/episode.
+    const cause = error instanceof Error ? error.cause : undefined;
+    if (
+      [error, cause].some(
+        (value) =>
+          value &&
+          typeof value === "object" &&
+          Reflect.get(value, "code") === "23505",
+      )
+    ) {
+      return json(
+        {
+          error:
+            "You already have a review or draft for this title. Reopen it to continue editing.",
+        },
+        409,
+      );
     }
     throw error;
   }
@@ -114,7 +175,8 @@ export const PATCH: APIRoute = async ({ request, url }) => {
   if (!id) return json({ error: "unauthorized" }, 401);
 
   const reviewId = Number(url.searchParams.get("id"));
-  if (!Number.isInteger(reviewId)) return json({ error: "bad id" }, 400);
+  if (!Number.isSafeInteger(reviewId) || reviewId <= 0)
+    return json({ error: "bad id" }, 400);
 
   let body: unknown;
   try {
@@ -128,8 +190,21 @@ export const PATCH: APIRoute = async ({ request, url }) => {
 
   const [row] = await db
     .update(reviews)
-    .set({ ...parsed.value, updatedAt: new Date() })
-    .where(and(eq(reviews.userId, id), eq(reviews.id, reviewId)))
+    .set({
+      ...parsed.value,
+      status:
+        (body as Record<string, unknown>).status === undefined
+          ? undefined
+          : parsed.value.status,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(reviews.userId, id),
+        eq(reviews.id, reviewId),
+        targetFilter(parsed.value),
+      ),
+    )
     .returning(columns);
 
   return row ? json(row) : json({ error: "not found" }, 404);
@@ -140,7 +215,8 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!id) return json({ error: "unauthorized" }, 401);
 
   const reviewId = Number(url.searchParams.get("id"));
-  if (!Number.isInteger(reviewId)) return json({ error: "bad id" }, 400);
+  if (!Number.isSafeInteger(reviewId) || reviewId <= 0)
+    return json({ error: "bad id" }, 400);
 
   await db
     .delete(reviews)

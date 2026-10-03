@@ -12,6 +12,7 @@ import QueryProvider from "./QueryProvider";
 import { CastGrid } from "./MediaDetail";
 import WatchLogButton from "./WatchLogButton";
 import FavoriteButton from "./FavoriteButton";
+import ReviewButton from "./ReviewButton";
 import { DetailSkeleton } from "./Skeleton";
 
 function CrewLine({
@@ -153,7 +154,7 @@ function EpisodeDetailInner({
           <h1 className="text-text-primary min-w-0 text-3xl font-black tracking-tighter text-balance sm:text-4xl">
             {episode.name}
           </h1>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* The episode's own TMDB id, so favoriting an episode never collides
             with favoriting its show. */}
             <FavoriteButton
@@ -184,6 +185,17 @@ function EpisodeDetailInner({
                 }}
               />
             )}
+            <ReviewButton
+              item={{
+                tmdbId: tvId,
+                mediaType: "tv",
+                season: episode.season_number,
+                episode: episode.episode_number,
+                title: `${show.name} ${code}`,
+                poster: posterUrl(show.poster_path),
+                subtitle: episode.name,
+              }}
+            />
           </div>
         </div>
       </div>

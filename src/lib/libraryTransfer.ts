@@ -1,9 +1,10 @@
-import { mediaHref } from "./mediaHref.ts";
+import { mediaHref, validSavedSeason } from "./mediaHref.ts";
 import { parseEntry, type WatchEntryInput } from "./watchLog.ts";
 export interface SavedImport {
   href?: string;
   id: number;
   mediaType: "movie" | "tv";
+  season?: number | null;
   kind: "favorite" | "watchlist";
   title: string;
   poster: string | null;
@@ -42,13 +43,15 @@ export function parseLibrary(value: unknown): LibraryImport {
       !row.title.trim() ||
       row.title.length > 300 ||
       !["movie", "tv"].includes(row.mediaType ?? "movie") ||
-      !["favorite", "watchlist"].includes(row.kind ?? "favorite")
+      !["favorite", "watchlist"].includes(row.kind ?? "favorite") ||
+      !validSavedSeason(row.season, row.mediaType)
     )
       throw new Error(`Saved entry ${index + 1} is invalid.`);
     return {
       id: row.id,
-      href: mediaHref(row.href, row.mediaType ?? "movie", row.id),
+      href: mediaHref(row.href, row.mediaType ?? "movie", row.id, row.season),
       mediaType: row.mediaType ?? "movie",
+      season: row.season ?? null,
       kind: row.kind ?? "favorite",
       title: row.title,
       poster:

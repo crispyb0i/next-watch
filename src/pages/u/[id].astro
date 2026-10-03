@@ -12,6 +12,7 @@ import { favorites, reviews, users, viewingPreferences } from "../../db/schema";
 import { displayName, followState } from "../../lib/follows";
 import { entryHref } from "../../lib/watchLog";
 import { reviewHref } from "../../lib/reviews";
+import ReviewContent from "../../components/ReviewContent";
 import { listWatched } from "../api/watched";
 import "../../styles/global.css";
 
@@ -47,22 +48,25 @@ const [rows, log, follow, reviewCount, reviewList] = await Promise.all([
   db
     .select({ n: count() })
     .from(reviews)
-    .where(eq(reviews.userId, user.id))
+    .where(and(eq(reviews.userId, user.id), eq(reviews.status, "published")))
     .then(([row]) => row?.n ?? 0),
   db
     .select({
       id: reviews.id,
       tmdbId: reviews.tmdbId,
       mediaType: reviews.mediaType,
+      season: reviews.season,
+      episode: reviews.episode,
       title: reviews.title,
       poster: reviews.poster,
       subtitle: reviews.subtitle,
       rating: reviews.rating,
       review: reviews.review,
+      document: reviews.document,
       updatedAt: reviews.updatedAt,
     })
     .from(reviews)
-    .where(eq(reviews.userId, user.id))
+    .where(and(eq(reviews.userId, user.id), eq(reviews.status, "published")))
     .orderBy(desc(reviews.updatedAt), desc(reviews.id))
     .limit(12),
 ]);
@@ -239,9 +243,9 @@ const formatDate = (value: string | Date) => {
                 )}
               </p>
               {review.review && (
-                <p class="text-text-secondary mt-2 line-clamp-3 text-sm">
-                  {review.review}
-                </p>
+                <div class="text-text-secondary mt-2 text-sm">
+                  <ReviewContent review={review} />
+                </div>
               )}
             </div>
           </li>

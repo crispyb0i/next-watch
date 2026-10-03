@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../../db";
 import { follows, reviews, users } from "../../db/schema";
 import { sessionUserId } from "../../lib/auth/server";
@@ -29,6 +29,10 @@ export const GET: APIRoute = async ({ request }) => {
       and(
         inArray(reviews.userId, [id, ...friends.map((friend) => friend.id)]),
         isNotNull(reviews.rating),
+        eq(reviews.status, "published"),
+        // Season/episode ratings must not replace the rating for the entire show.
+        isNull(reviews.season),
+        isNull(reviews.episode),
       ),
     )
     .orderBy(desc(reviews.updatedAt), desc(reviews.id))

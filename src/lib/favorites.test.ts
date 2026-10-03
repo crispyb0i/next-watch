@@ -116,6 +116,48 @@ _resetForTest();
 await toggleFavorite(movie);
 assert.equal(isFavorite(1), false, "rolled back after failure");
 
+// --- series, seasons (including specials), and list kinds are independent.
+ok = true;
+_resetForTest();
+const seasonOne = { ...show, season: 1, title: "Dune · Season 1" };
+const seasonTwo = { ...show, season: 2, title: "Dune · Season 2" };
+const specials = { ...show, season: 0, title: "Dune · Specials" };
+await toggleFavorite(show);
+await toggleFavorite(seasonOne);
+await toggleFavorite(seasonTwo);
+await toggleFavorite(specials);
+await toggleFavorite({ ...seasonOne, kind: "watchlist" });
+assert.equal(getFavorites().length, 5);
+assert.equal(isFavorite(1, "tv"), true);
+assert.equal(isFavorite(1, "tv", "favorite", 0), true);
+assert.equal(isFavorite(1, "tv", "favorite", 1), true);
+ok = false;
+await toggleFavorite(seasonOne);
+assert.equal(
+  isFavorite(1, "tv", "favorite", 1),
+  true,
+  "failed season removal rolls back",
+);
+assert.equal(
+  isFavorite(1, "tv"),
+  true,
+  "failed season removal leaves the series alone",
+);
+ok = true;
+await toggleFavorite(seasonOne);
+assert.equal(isFavorite(1, "tv", "favorite", 1), false);
+assert.equal(isFavorite(1, "tv", "favorite", 2), true);
+assert.equal(isFavorite(1, "tv", "watchlist", 1), true);
+assert.equal(
+  calls.at(-1),
+  "DELETE /api/favorites?tmdbId=1&mediaType=tv&kind=favorite&season=1",
+);
+await toggleFavorite(specials);
+assert.equal(
+  calls.at(-1),
+  "DELETE /api/favorites?tmdbId=1&mediaType=tv&kind=favorite&season=0",
+);
+
 // --- garbage in storage is filtered, not fatal
 ok = true;
 (globalThis as any).__jwt = undefined;

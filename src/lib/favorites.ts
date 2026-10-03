@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { getJWTToken } from "./auth/client";
+import { validSavedSeason } from "./mediaHref.ts";
 
 export type MediaType = "movie" | "tv";
 
@@ -8,8 +9,9 @@ export type SaveKind = "favorite" | "watchlist";
 
 export interface Favorite {
   id: number;
-  /** Defaults to "movie" — TMDB ids only collide across media types. */
+  /** Defaults to "movie". Season entries use the parent show's ID. */
   mediaType?: MediaType;
+  season?: number | null;
   /** Defaults to "favorite". */
   kind?: SaveKind;
   title: string;
@@ -55,6 +57,7 @@ function readLocal(): Favorite[] {
             (item.kind == null ||
               item.kind === "favorite" ||
               item.kind === "watchlist") &&
+            validSavedSeason(item.season, item.mediaType) &&
             // Only same-origin paths — localStorage is user-writable, so a
             // stored `javascript:` or cross-origin href must never reach an <a>.
             (item.href == null ||
@@ -151,16 +154,23 @@ export const kindOf = (item: { kind?: SaveKind }): SaveKind =>
   item.kind ?? "favorite";
 
 const same = (a: Favorite, b: Favorite) =>
-  a.id === b.id && typeOf(a) === typeOf(b) && kindOf(a) === kindOf(b);
+  a.id === b.id &&
+  typeOf(a) === typeOf(b) &&
+  kindOf(a) === kindOf(b) &&
+  (a.season ?? null) === (b.season ?? null);
 
 export function isFavorite(
   id: number,
   mediaType: MediaType = "movie",
   kind: SaveKind = "favorite",
+  season: number | null = null,
 ) {
   return cache.some(
     (item) =>
-      item.id === id && typeOf(item) === mediaType && kindOf(item) === kind,
+      item.id === id &&
+      typeOf(item) === mediaType &&
+      kindOf(item) === kind &&
+      (item.season ?? null) === season,
   );
 }
 
@@ -172,7 +182,7 @@ export function saved(kind: SaveKind): Favorite[] {
 export function toggleFavorite(
   item: Favorite,
 ): Promise<{ ok: boolean; removing: boolean }> {
-  const key = `${typeOf(item)}:${item.id}:${kindOf(item)}`;
+  const key = `${typeOf(item)}:${item.id}:${kindOf(item)}:${item.season ?? "all"}`;
   const run = async () => {
     if (loading) await loading;
     if (!hydrated) await reloadFavorites();
@@ -189,7 +199,7 @@ export function toggleFavorite(
       } else {
         const response = removing
           ? await fetch(
-              `/api/favorites?tmdbId=${item.id}&mediaType=${typeOf(item)}&kind=${kindOf(item)}`,
+              `/api/favorites?tmdbId=${item.id}&mediaType=${typeOf(item)}&kind=${kindOf(item)}${item.season == null ? "" : `&season=${item.season}`}`,
               {
                 method: "DELETE",
                 headers: { authorization: `Bearer ${jwt}` },

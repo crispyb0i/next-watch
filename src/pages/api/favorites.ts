@@ -1,6 +1,6 @@
-import { mediaHref } from "../../lib/mediaHref";
+import { mediaHref, validSavedSeason } from "../../lib/mediaHref";
 import type { APIRoute } from "astro";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { favorites } from "../../db/schema";
 import { sessionUserId, syncUser } from "../../lib/auth/server";
@@ -30,6 +30,7 @@ export const GET: APIRoute = async ({ request }) => {
     .select({
       id: favorites.tmdbId,
       mediaType: favorites.mediaType,
+      season: sql<number | null>`nullif(${favorites.season}, -1)`,
       title: favorites.title,
       poster: favorites.poster,
       subtitle: favorites.subtitle,
@@ -67,6 +68,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   const mediaType = item.mediaType === "tv" ? "tv" : "movie";
   const kind = kindOf(item.kind);
+  if (!validSavedSeason(item.season, mediaType))
+    return json(
+      { error: "Season must be a non-negative integer for a TV show." },
+      400,
+    );
+  const season = item.season as number | null | undefined;
 
   if (!(await syncUser(request, id))) {
     return json({ error: "token is missing an email claim" }, 403);
@@ -77,12 +84,13 @@ export const POST: APIRoute = async ({ request }) => {
       userId: id,
       tmdbId: item.tmdbId as number,
       mediaType,
+      season: season ?? -1,
       kind,
       title: item.title.slice(0, 300),
       poster: typeof item.poster === "string" ? item.poster : null,
       subtitle: typeof item.subtitle === "string" ? item.subtitle : null,
       rating: typeof item.rating === "number" ? item.rating : null,
-      href: mediaHref(item.href, mediaType, Number(item.tmdbId)),
+      href: mediaHref(item.href, mediaType, Number(item.tmdbId), season),
     })
     .onConflictDoNothing();
 
@@ -99,6 +107,11 @@ export const DELETE: APIRoute = async ({ request, url }) => {
 
   const mediaType = url.searchParams.get("mediaType") === "tv" ? "tv" : "movie";
   const kind = kindOf(url.searchParams.get("kind"));
+  const season = url.searchParams.has("season")
+    ? Number(url.searchParams.get("season")?.trim() || NaN)
+    : null;
+  if (!validSavedSeason(season, mediaType))
+    return json({ error: "Invalid season" }, 400);
 
   await db
     .delete(favorites)
@@ -108,6 +121,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
         eq(favorites.tmdbId, tmdbId),
         eq(favorites.mediaType, mediaType),
         eq(favorites.kind, kind),
+        eq(favorites.season, season ?? -1),
       ),
     );
 
