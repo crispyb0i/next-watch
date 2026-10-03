@@ -1,0 +1,81 @@
+---
+const retryHref = Astro.url.pathname + Astro.url.search;
+---
+
+<section
+  aria-labelledby="title-load-error"
+  class="border-border/60 bg-surface-elevated/80 shadow-card relative mx-auto my-8 max-w-xl overflow-hidden rounded-3xl border px-6 py-10 text-center sm:my-16 sm:px-10 sm:py-12"
+>
+  <div
+    aria-hidden="true"
+    class="from-accent/10 pointer-events-none absolute inset-x-0 top-0 h-40 bg-linear-to-b to-transparent"
+  ></div>
+
+  <div class="relative">
+    <div
+      aria-hidden="true"
+      class="bg-accent/10 text-accent-hover ring-accent/20 mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl ring-1"
+    >
+      <svg
+        width="30"
+        height="30"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        focusable="false"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+        <path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4M12 8v5"></path>
+        <path d="M12 16h.01"></path>
+      </svg>
+    </div>
+
+    <div role="alert">
+      <h1
+        id="title-load-error"
+        class="text-text-primary text-2xl font-extrabold tracking-tight text-balance sm:text-3xl"
+      >
+        Couldn't load this title
+      </h1>
+      <p class="text-text-muted mx-auto mt-3 max-w-sm text-sm leading-7">
+        We couldn't get the details right now. Try again, or discover something
+        else to watch.
+      </p>
+    </div>
+
+    <div class="mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
+      <a
+        href={retryHref}
+        data-astro-reload
+        data-astro-prefetch="false"
+        class="bg-accent text-accent-contrast hover:bg-accent-hover focus-visible:outline-accent inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        <svg
+          aria-hidden="true"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          focusable="false"
+        >
+          <path d="M20 7v5h-5M4 17v-5h5"></path>
+          <path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"></path>
+        </svg>
+        Try again
+      </a>
+      <a
+        href="/discover"
+        class="border-border/70 text-text-primary hover:border-accent hover:bg-accent/5 focus-visible:outline-accent inline-flex min-h-11 items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        Back to Discover
+      </a>
+    </div>
+  </div>
+</section>

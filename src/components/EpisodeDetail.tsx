@@ -26,9 +26,9 @@ function CrewLine({
   if (people.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-x-2">
-      <dt className="text-text-primary font-semibold">{label}</dt>
-      <dd>
+    <div className="min-w-0">
+      <dt className="text-text-muted text-xs font-medium">{label}</dt>
+      <dd className="text-text-primary mt-1.5 leading-6 font-semibold">
         {people.map((person, index) => (
           <span key={person.credit_id}>
             {index > 0 && ", "}
@@ -129,7 +129,10 @@ function EpisodeDetailInner({
 
   return (
     <div className="w-full">
-      <nav className="text-text-muted flex flex-wrap items-center gap-2 text-sm font-semibold">
+      <nav
+        aria-label="Episode breadcrumb"
+        className="text-text-muted flex flex-wrap items-center gap-2 text-sm font-semibold"
+      >
         <a href={`/tv?id=${tvId}`} className="hover:text-accent">
           {show.name}
         </a>
@@ -143,103 +146,139 @@ function EpisodeDetailInner({
       </nav>
 
       {still && (
-        <div className="border-border/50 relative mt-4 aspect-video overflow-hidden rounded-3xl border">
-          <img src={still} alt="" className="h-full w-full object-cover" />
-          <div className="from-surface via-surface/40 absolute inset-0 bg-linear-to-t to-transparent" />
+        <div
+          aria-hidden="true"
+          className="relative mt-6 aspect-video max-h-[28rem] overflow-hidden rounded-t-2xl"
+        >
+          <img
+            src={still}
+            alt=""
+            className="h-full w-full object-cover object-center"
+          />
+          <div className="from-surface/30 to-surface/30 absolute inset-0 bg-linear-to-r via-transparent" />
+          <div className="from-surface/0 via-surface/60 to-surface absolute inset-0 bg-linear-to-b from-35% via-70% to-100%" />
         </div>
       )}
 
-      <div className="mt-8">
-        <p className="text-text-muted font-mono text-sm">{code}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-3">
-          <h1 className="text-text-primary min-w-0 text-3xl font-black tracking-tighter text-balance sm:text-4xl">
+      <div className={still ? "relative z-10 -mt-10 sm:-mt-20" : "mt-8"}>
+        <p className="text-accent-hover font-mono text-sm font-semibold">
+          {code}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <h1 className="text-text-primary min-w-0 text-[38px] leading-[1.08] font-black tracking-tight text-balance md:text-[42px] lg:text-[44px]">
             {episode.name}
           </h1>
-          <div className="flex flex-wrap items-center gap-3">
-            {/* The episode's own TMDB id, so favoriting an episode never collides
-            with favoriting its show. */}
-            <FavoriteButton
-              item={{
-                id: episode.id,
-                title: `${show.name} ${code}`,
-                poster:
-                  stillUrl(episode.still_path) ?? posterUrl(show.poster_path),
-                subtitle: episode.name,
-                rating: episode.vote_average,
-                href: episodeHref(tvId, {
-                  season: episode.season_number,
-                  episode: episode.episode_number,
-                }),
-              }}
-              className="shrink-0"
-            />
-            {aired && (
-              <WatchLogButton
-                item={{
-                  tmdbId: tvId,
-                  mediaType: "tv",
-                  season: episode.season_number,
-                  episode: episode.episode_number,
-                  title: show.name,
-                  poster: posterUrl(show.poster_path),
-                  subtitle: `${code} · ${episode.name}`,
-                }}
-              />
-            )}
-            <ReviewButton
-              item={{
-                tmdbId: tvId,
-                mediaType: "tv",
-                season: episode.season_number,
-                episode: episode.episode_number,
-                title: `${show.name} ${code}`,
-                poster: posterUrl(show.poster_path),
-                subtitle: episode.name,
-              }}
-            />
-            <AddToListButton
-              item={{
-                tmdbId: tvId,
-                mediaType: "tv",
-                season: episode.season_number,
-                episode: episode.episode_number,
-                title: `${show.name} ${code}`,
-                poster: posterUrl(show.poster_path),
-                subtitle: episode.name,
-              }}
-            />
-          </div>
+          {episode.vote_average > 0 && (
+            <span
+              className="text-star inline-flex shrink-0 items-center gap-1.5 text-lg leading-none font-semibold"
+              title="TMDB rating"
+            >
+              <span aria-hidden="true">★</span>
+              <span className="sr-only">TMDB rating: </span>
+              <span>
+                {(episode.vote_average / 2).toFixed(1)}
+                <span className="text-text-muted ml-0.5 text-xs font-normal">
+                  /5
+                </span>
+              </span>
+            </span>
+          )}
         </div>
-      </div>
 
-      <div className="text-text-muted mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        {episode.air_date && (
-          <time dateTime={episode.air_date}>{episode.air_date}</time>
+        <div className="text-text-muted mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+          {episode.air_date && (
+            <time dateTime={episode.air_date}>{episode.air_date}</time>
+          )}
+          {episode.runtime && <span>{episode.runtime} min</span>}
+        </div>
+
+        <div
+          role="group"
+          aria-label="Episode actions"
+          className="mt-5 flex flex-wrap items-center gap-2"
+        >
+          {/* The episode's own TMDB id, so favoriting an episode never collides
+            with favoriting its show. */}
+          <FavoriteButton
+            compact
+            item={{
+              id: episode.id,
+              title: `${show.name} ${code}`,
+              poster:
+                stillUrl(episode.still_path) ?? posterUrl(show.poster_path),
+              subtitle: episode.name,
+              rating: episode.vote_average,
+              href: episodeHref(tvId, {
+                season: episode.season_number,
+                episode: episode.episode_number,
+              }),
+            }}
+            className="shrink-0"
+          />
+          {aired && (
+            <WatchLogButton
+              item={{
+                tmdbId: tvId,
+                mediaType: "tv",
+                season: episode.season_number,
+                episode: episode.episode_number,
+                title: show.name,
+                poster: posterUrl(show.poster_path),
+                subtitle: `${code} · ${episode.name}`,
+              }}
+            />
+          )}
+          <ReviewButton
+            compact
+            item={{
+              tmdbId: tvId,
+              mediaType: "tv",
+              season: episode.season_number,
+              episode: episode.episode_number,
+              title: `${show.name} ${code}`,
+              poster: posterUrl(show.poster_path),
+              subtitle: episode.name,
+            }}
+          />
+          <AddToListButton
+            compact
+            item={{
+              tmdbId: tvId,
+              mediaType: "tv",
+              season: episode.season_number,
+              episode: episode.episode_number,
+              title: `${show.name} ${code}`,
+              poster: posterUrl(show.poster_path),
+              subtitle: episode.name,
+            }}
+          />
+        </div>
+
+        {episode.overview && (
+          <div className="mt-6 max-w-[700px]">
+            <h2 className="text-text-primary text-lg font-extrabold tracking-tight">
+              Overview
+            </h2>
+            <p className="text-text-muted mt-2.5 text-[15px] leading-8">
+              {episode.overview}
+            </p>
+          </div>
         )}
-        {episode.runtime && <span>{episode.runtime} min</span>}
-        {episode.vote_average > 0 && (
-          <span className="text-star border-star/30 bg-star/10 rounded-full border px-2.5 py-0.5 font-bold">
-            ★ {(episode.vote_average / 2).toFixed(1)}/5
-          </span>
+
+        {(directors.length > 0 || writers.length > 0) && (
+          <dl className="border-border/50 bg-surface-muted/50 mt-6 grid max-w-[700px] gap-5 rounded-2xl border p-5 text-sm sm:grid-cols-2">
+            <CrewLine label="Director" people={directors} />
+            <CrewLine label="Writers" people={writers} />
+          </dl>
         )}
       </div>
-
-      {episode.overview && (
-        <p className="text-text-muted mt-5 leading-relaxed">
-          {episode.overview}
-        </p>
-      )}
-
-      {(directors.length > 0 || writers.length > 0) && (
-        <dl className="text-text-muted mt-6 space-y-1 text-sm">
-          <CrewLine label="Directed by" people={directors} />
-          <CrewLine label="Written by" people={writers} />
-        </dl>
-      )}
 
       <CastGrid cast={episode.guest_stars} title="Guest stars" />
 
-      <nav className="border-border/60 mt-14 flex items-stretch justify-between gap-3 border-t pt-6">
+      <nav
+        aria-label="Episode navigation"
+        className="border-border/60 mt-12 flex items-stretch justify-between gap-3 border-t pt-6"
+      >
         <EpisodeLink tvId={tvId} target={previous} direction="previous" />
         <EpisodeLink tvId={tvId} target={next} direction="next" />
       </nav>

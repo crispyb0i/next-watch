@@ -6,6 +6,8 @@ import { isFavorite, toggleFavorite } from "../lib/favorites";
 import { notify } from "../lib/notifications";
 import { requireAuth } from "../lib/auth/gate";
 import QueryProvider from "./QueryProvider";
+import ActionIcon from "./ActionIcon";
+import IconTooltip from "./IconTooltip";
 
 /** Create, or replace `entryId` when editing an existing log. */
 export async function postEntry(entry: WatchEntryInput, entryId?: number) {
@@ -156,29 +158,25 @@ export function LogForm({
   );
 }
 
-/** "Log watch" button plus the form, in a native modal dialog. */
-export default function WatchLogButton({
-  item,
-  className = "",
-}: {
-  item: LogItem;
-  className?: string;
-}) {
+/** Calendar button plus the watch logging form, in a native modal dialog. */
+export default function WatchLogButton({ item }: { item: LogItem }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
 
   return (
     <QueryProvider>
-      <button
-        type="button"
-        aria-label={`Log watch for ${item.title}`}
-        onClick={async () => {
-          if (await requireAuth()) dialog.current?.showModal();
-        }}
-        className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${className}`}
-      >
-        + Log watch
-      </button>
+      <IconTooltip label="Log watch">
+        <button
+          type="button"
+          aria-label={`Log watch for ${item.title}`}
+          onClick={async () => {
+            if (await requireAuth()) dialog.current?.showModal();
+          }}
+          className="border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent flex size-11 shrink-0 items-center justify-center rounded-full border text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2"
+        >
+          <ActionIcon kind="log" />
+        </button>
+      </IconTooltip>
 
       <dialog
         ref={dialog}

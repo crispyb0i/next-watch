@@ -33,6 +33,16 @@ assert.equal(
   true,
 );
 assert.equal(validateTmdb("/tv/1/season/0/episode/1", {}), true);
+for (const path of ["/movie/1", "/tv/1"]) {
+  assert.equal(
+    validateTmdb(path, { append_to_response: "external_ids" }),
+    true,
+  );
+  assert.equal(
+    validateTmdb(path, { append_to_response: "external_ids,account_states" }),
+    false,
+  );
+}
 const saved = [
   { tmdbId: 1, mediaType: "movie", title: "A", poster: null },
   { tmdbId: 1, mediaType: "tv", title: "B", poster: null },

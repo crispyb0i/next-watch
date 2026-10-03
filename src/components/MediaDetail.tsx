@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CastMember } from "../lib/tmdb";
 import { profileUrl, userRegion } from "../lib/tmdb";
+import ImageViewer from "./ImageViewer";
 
 /** `US` on the server, the real region after hydration. Read post-mount so
  *  the SSR markup and first client render agree. */
@@ -62,16 +63,16 @@ function CastCard({ member }: { member: CastMember }) {
   return (
     <li className="text-center">
       <a href={`/person?id=${member.id}`} className="group block">
-        <div className="bg-surface-muted border-border/60 group-hover:border-accent group-hover:shadow-accent/25 relative mx-auto aspect-square w-full overflow-hidden rounded-full border transition group-hover:shadow-lg">
+        <div className="bg-surface-muted border-border/60 group-hover:border-accent group-hover:shadow-accent/25 relative mx-auto aspect-[2/3] w-full overflow-hidden rounded-xl border transition group-hover:shadow-lg">
           {photo ? (
             <img
               src={photo}
               alt={member.name}
               width={185}
-              height={185}
+              height={278}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-top"
             />
           ) : (
             <div className="text-text-muted flex h-full w-full items-center justify-center text-xs">
@@ -94,6 +95,7 @@ export default function MediaDetail({
   backdrop,
   backdropLarge,
   poster,
+  posterLarge,
   title,
   tagline,
   meta,
@@ -101,6 +103,7 @@ export default function MediaDetail({
   voteAverage,
   certification,
   overview,
+  details,
   cast,
   actions,
   before,
@@ -110,6 +113,7 @@ export default function MediaDetail({
   /** `original` source, served to wide viewports so the full-bleed hero isn't upscaled. */
   backdropLarge?: string | null;
   poster: string | null;
+  posterLarge?: string | null;
   title: string;
   tagline: string;
   meta: string[];
@@ -118,6 +122,8 @@ export default function MediaDetail({
   /** Region content rating, e.g. `PG-13` / `TV-MA`. */
   certification?: string | null;
   overview: string;
+  /** Production facts and credits below the overview. */
+  details?: React.ReactNode;
   cast: CastMember[];
   actions?: React.ReactNode;
   /** Rendered between the header and the cast grid (seasons, etc.). */
@@ -128,11 +134,11 @@ export default function MediaDetail({
   return (
     <div className="w-full">
       {backdrop && (
-        /* Full-bleed hero: breaks out of the page container, then fades to the
-           page background on every edge so the content can sit on top of it. */
+        /* Let the image set the banner height so the entire backdrop remains
+           visible, then fade its lower edge behind the overlapping content. */
         <div
           aria-hidden="true"
-          className="relative left-1/2 -mt-8 h-[56vh] max-h-[28rem] min-h-80 w-screen -translate-x-1/2 sm:-mt-14 sm:h-[68vh] sm:max-h-[36rem]"
+          className="relative left-1/2 -mt-6 w-screen -translate-x-1/2 sm:-mt-14"
         >
           <img
             src={backdrop}
@@ -143,32 +149,29 @@ export default function MediaDetail({
             }
             sizes="100vw"
             alt=""
-            className="h-full w-full object-cover object-top"
-            style={{
-              maskImage:
-                "linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent, black 12%, black 88%, transparent)",
-              maskComposite: "intersect",
-              WebkitMaskImage:
-                "linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent, black 12%, black 88%, transparent)",
-              WebkitMaskComposite: "source-in",
-            }}
+            width={1280}
+            height={720}
+            className="block h-auto w-full"
           />
-          <div className="from-surface absolute inset-x-0 bottom-0 h-2/3 bg-linear-to-t to-transparent" />
+          <div className="from-surface/40 to-surface/40 absolute inset-0 bg-linear-to-r from-0% via-transparent via-50% to-100%" />
+          <div className="from-surface/0 via-surface/90 to-surface absolute inset-0 bg-linear-to-b from-25% via-60% to-95% lg:from-10% lg:via-45%" />
         </div>
       )}
 
       <div
-        className={`flex flex-col gap-8 sm:flex-row sm:items-start ${
-          backdrop ? "relative z-10 -mt-24 sm:-mt-32" : ""
+        className={`flex flex-col gap-7 md:flex-row md:items-start md:gap-8 ${
+          backdrop
+            ? "relative z-10 -mt-20 sm:-mt-32 md:-mt-64 lg:-mt-[calc(27vw+9rem)]"
+            : ""
         }`}
       >
-        <div className="w-40 shrink-0 sm:w-52">
+        <div className="w-52 max-w-full shrink-0 sm:w-60 md:w-[280px]">
           <div className="bg-surface-muted shadow-card border-border/60 overflow-hidden rounded-2xl border">
             {poster ? (
-              <img
+              <ImageViewer
                 src={poster}
-                alt={title}
-                className="aspect-[2/3] w-full object-cover"
+                fullSrc={posterLarge}
+                alt={`${title} poster`}
               />
             ) : (
               <div className="text-text-muted flex aspect-[2/3] w-full items-center justify-center text-sm">
@@ -178,12 +181,29 @@ export default function MediaDetail({
           </div>
         </div>
 
-        <div className="min-w-0">
-          <h1 className="text-text-primary text-3xl font-black tracking-tighter text-balance sm:text-4xl">
-            {title}
-          </h1>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <h1 className="text-text-primary text-[38px] leading-[1.08] font-black tracking-tight text-balance md:text-[42px] lg:text-[44px]">
+              {title}
+            </h1>
+            {voteAverage > 0 && (
+              <span
+                className="text-star inline-flex shrink-0 items-center gap-1.5 text-lg leading-none font-semibold"
+                title="TMDB rating"
+              >
+                <span aria-hidden="true">★</span>
+                <span className="sr-only">TMDB rating: </span>
+                <span>
+                  {(voteAverage / 2).toFixed(1)}
+                  <span className="text-text-muted ml-0.5 text-xs font-normal">
+                    /5
+                  </span>
+                </span>
+              </span>
+            )}
+          </div>
           {tagline && (
-            <p className="text-text-muted mt-2 text-sm italic">{tagline}</p>
+            <p className="text-text-muted mt-2 text-base italic">{tagline}</p>
           )}
 
           <div className="text-text-muted mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
@@ -193,11 +213,6 @@ export default function MediaDetail({
             {certification && (
               <span className="border-border text-text-muted rounded border px-1.5 py-0.5 text-xs font-bold">
                 {certification}
-              </span>
-            )}
-            {voteAverage > 0 && (
-              <span className="text-star border-star/30 bg-star/10 rounded-full border px-2.5 py-0.5 font-bold">
-                ★ {(voteAverage / 2).toFixed(1)}/5
               </span>
             )}
           </div>
@@ -216,12 +231,22 @@ export default function MediaDetail({
           )}
 
           {actions && (
-            <div className="mt-5 flex flex-wrap gap-2">{actions}</div>
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              {actions}
+            </div>
           )}
 
           {overview && (
-            <p className="text-text-muted mt-5 leading-relaxed">{overview}</p>
+            <div className="mt-6 max-w-[700px]">
+              <h2 className="text-text-primary text-lg font-extrabold tracking-tight">
+                Overview
+              </h2>
+              <p className="text-text-muted mt-2.5 text-[15px] leading-8">
+                {overview}
+              </p>
+            </div>
           )}
+          {details}
         </div>
       </div>
 

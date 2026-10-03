@@ -16,6 +16,7 @@ import FavoriteButton from "./FavoriteButton";
 import ReviewButton from "./ReviewButton";
 import AddToListButton from "./AddToListButton";
 import { DetailSkeleton } from "./Skeleton";
+import ImageViewer from "./ImageViewer";
 
 const airedYet = (airDate: string | null) =>
   Boolean(airDate) && airDate! <= new Date().toISOString().slice(0, 10);
@@ -61,7 +62,7 @@ function EpisodeRow({
 
       <div className="min-w-0 flex-1">
         {watched && <p className="text-accent text-sm">Watched</p>}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <h3 className="text-text-primary font-bold tracking-tight">
             <a href={href} className="hover:text-accent transition">
               <span className="text-text-muted mr-2 font-mono text-xs">
@@ -70,8 +71,13 @@ function EpisodeRow({
               {episode.name}
             </a>
           </h3>
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            role="group"
+            aria-label={`${code} actions`}
+            className="flex shrink-0 items-center gap-2"
+          >
             <FavoriteButton
+              compact
               item={{
                 id: episode.id,
                 title: `${showName} ${code}`,
@@ -94,6 +100,18 @@ function EpisodeRow({
                 }}
               />
             )}
+            <ReviewButton
+              compact
+              item={{
+                tmdbId: showId,
+                mediaType: "tv",
+                season: episode.season_number,
+                episode: episode.episode_number,
+                title: `${showName} ${code}`,
+                poster,
+                subtitle: episode.name,
+              }}
+            />
           </div>
         </div>
 
@@ -114,19 +132,6 @@ function EpisodeRow({
             {episode.overview}
           </p>
         )}
-        <div className="mt-3">
-          <ReviewButton
-            item={{
-              tmdbId: showId,
-              mediaType: "tv",
-              season: episode.season_number,
-              episode: episode.episode_number,
-              title: `${showName} ${code}`,
-              poster,
-              subtitle: episode.name,
-            }}
-          />
-        </div>
       </div>
     </li>
   );
@@ -192,10 +197,13 @@ function SeasonDetailInner({
       <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="bg-surface-muted border-border/60 w-32 shrink-0 overflow-hidden rounded-2xl border sm:w-40">
           {poster ? (
-            <img
+            <ImageViewer
               src={poster}
-              alt={season.name}
-              className="aspect-[2/3] w-full object-cover"
+              fullSrc={posterUrl(
+                season.poster_path ?? show.poster_path,
+                "original",
+              )}
+              alt={`${seasonTitle} poster`}
             />
           ) : (
             <div className="text-text-muted grid aspect-[2/3] w-full place-items-center text-sm">
@@ -220,9 +228,13 @@ function SeasonDetailInner({
             aria-label="Season actions"
             className="mt-4 flex flex-wrap items-center gap-2"
           >
-            <FavoriteButton item={savedSeason} />
-            <FavoriteButton item={{ ...savedSeason, kind: "watchlist" }} />
-            <AddToListButton
+            <FavoriteButton
+              primary
+              item={{ ...savedSeason, kind: "watchlist" }}
+            />
+            <FavoriteButton compact item={savedSeason} />
+            <ReviewButton
+              compact
               item={{
                 tmdbId: tvId,
                 mediaType: "tv",
@@ -232,7 +244,8 @@ function SeasonDetailInner({
                 subtitle: savedSeason.subtitle,
               }}
             />
-            <ReviewButton
+            <AddToListButton
+              compact
               item={{
                 tmdbId: tvId,
                 mediaType: "tv",

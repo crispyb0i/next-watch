@@ -12,6 +12,7 @@ import {
 } from "../lib/tmdb";
 import QueryProvider from "./QueryProvider";
 import MediaDetail, { useRegion } from "./MediaDetail";
+import MediaFacts from "./MediaFacts";
 import FavoriteButton from "./FavoriteButton";
 import ReviewButton from "./ReviewButton";
 import AddToListButton from "./AddToListButton";
@@ -104,6 +105,7 @@ function TvDetailInner({
       backdrop={backdropUrl(show.backdrop_path)}
       backdropLarge={backdropUrl(show.backdrop_path, "original")}
       poster={posterUrl(show.poster_path, "w500")}
+      posterLarge={posterUrl(show.poster_path, "original")}
       title={show.name}
       tagline={show.tagline}
       meta={meta}
@@ -111,6 +113,7 @@ function TvDetailInner({
       voteAverage={show.vote_average}
       certification={tvCertification(show, region)}
       overview={show.overview}
+      details={<MediaFacts mediaType="tv" media={show} />}
       cast={flattenAggregateCast(show.aggregate_credits)}
       after={
         <RelatedGrid
@@ -128,8 +131,10 @@ function TvDetailInner({
       }
       actions={
         <>
-          {(["favorite", "watchlist"] as const).map((kind) => (
+          {(["watchlist", "favorite"] as const).map((kind) => (
             <FavoriteButton
+              compact={kind === "favorite"}
+              primary={kind === "watchlist"}
               key={kind}
               item={{
                 id: show.id,
@@ -144,6 +149,7 @@ function TvDetailInner({
             />
           ))}
           <ReviewButton
+            compact
             item={{
               tmdbId: show.id,
               mediaType: "tv",
@@ -153,6 +159,7 @@ function TvDetailInner({
             }}
           />
           <AddToListButton
+            compact
             item={{
               tmdbId: show.id,
               mediaType: "tv",

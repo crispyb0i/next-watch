@@ -8,6 +8,8 @@ import type { ListItemInput } from "../lib/lists";
 import { notify } from "../lib/notifications";
 import QueryProvider from "./QueryProvider";
 import ListForm, { listButton, type ListFields } from "./ListForm";
+import ActionIcon from "./ActionIcon";
+import IconTooltip from "./IconTooltip";
 
 function Picker({ item, onDone }: { item: ListItemInput; onDone: () => void }) {
   const lists = useLists();
@@ -109,24 +111,33 @@ function Picker({ item, onDone }: { item: ListItemInput; onDone: () => void }) {
   );
 }
 
-function ListDialog({ item }: { item: ListItemInput }) {
+function ListDialog({
+  item,
+  compact = false,
+}: {
+  item: ListItemInput;
+  compact?: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useId();
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        type="button"
-        className="border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2"
-        onClick={async () => {
-          if (await requireAuth()) {
-            setOpen(true);
-            dialog.current?.showModal();
-          }
-        }}
-      >
-        Add to list
-      </button>
+      <IconTooltip enabled={compact} label="Add to list">
+        <button
+          type="button"
+          aria-label={compact ? "Add to list" : undefined}
+          className={`border-border/60 text-text-primary hover:border-accent focus-visible:outline-accent rounded-full border text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 ${compact ? "flex size-11 shrink-0 items-center justify-center" : "px-3 py-1.5"}`}
+          onClick={async () => {
+            if (await requireAuth()) {
+              setOpen(true);
+              dialog.current?.showModal();
+            }
+          }}
+        >
+          {compact ? <ActionIcon kind="list" /> : "Add to list"}
+        </button>
+      </IconTooltip>
       <dialog
         ref={dialog}
         aria-labelledby={heading}
@@ -152,11 +163,21 @@ function ListDialog({ item }: { item: ListItemInput }) {
   );
 }
 
-export default function AddToListButton({ item }: { item: ListItemInput }) {
+export default function AddToListButton({
+  item,
+  compact = false,
+}: {
+  item: ListItemInput;
+  compact?: boolean;
+}) {
   const { data: session } = authClient.useSession();
   return (
     <QueryProvider>
-      <ListDialog key={session?.user.id ?? "signed-out"} item={item} />
+      <ListDialog
+        key={session?.user.id ?? "signed-out"}
+        item={item}
+        compact={compact}
+      />
     </QueryProvider>
   );
 }
