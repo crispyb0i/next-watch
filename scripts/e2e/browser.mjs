@@ -162,8 +162,11 @@ export async function runBrowserTests({
       .getByRole("button", { name: "Account menu", exact: true })
       .click();
     await tab.getByRole("menuitem", { name: "Sign out", exact: true }).click();
-    await tab.waitForURL((url) =>
-      ["/", "/auth/sign-in"].includes(url.pathname),
+    // AuthMenu and the protected-page gate can both redirect on sign-out.
+    // Observe the resulting state rather than one navigation's load event.
+    await eventually(
+      () => ["/", "/auth/sign-in"].includes(new URL(tab.url()).pathname),
+      "signed-out route",
     );
     await tab.getByRole("link", { name: "Sign in", exact: true }).waitFor();
   }
