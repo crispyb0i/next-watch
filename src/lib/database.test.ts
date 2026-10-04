@@ -13,6 +13,8 @@ let viewer: string | null = "alice";
 let syncAllowed = true;
 let providerIds = [8];
 let upstreamFails = false;
+let beforeProvider:
+  ((path: string, signal?: AbortSignal) => Promise<void>) | undefined;
 const testDb = new Proxy(db, {
   get(target, property) {
     if (property === "batch")
@@ -35,7 +37,8 @@ Object.assign(globalThis, {
   __testDb: testDb,
   __viewer: () => viewer,
   __syncAllowed: () => syncAllowed,
-  __tmdb: () => {
+  __tmdb: async (path: string, _params: unknown, signal?: AbortSignal) => {
+    await beforeProvider?.(path, signal);
     if (upstreamFails) throw new Error("upstream unavailable");
     return {
       results: {
@@ -69,7 +72,7 @@ registerHooks({
       };
     if (specifier.endsWith("server/tmdb"))
       return {
-        url: "data:text/javascript,export const serverTmdb=async()=>globalThis.__tmdb()",
+        url: "data:text/javascript,export const serverTmdb=async(...args)=>globalThis.__tmdb(...args)",
         shortCircuit: true,
       };
     if (specifier.startsWith(".") && context.parentURL) {
@@ -1105,6 +1108,152 @@ try {
   );
   console.log(
     "Viewing statuses: migration, validation, ownership, history preservation, legacy progress, watchlist synchronization and atomic rollback passed",
+  );
+  // Delay each provider batch until all three start, then complete in reverse.
+  // Database writes must retain title order and must not retry failed lookups.
+  viewer = "availability-batch";
+  await db.insert(schema.users).values({
+    id: viewer,
+    email: "availability-batch@example.invalid",
+  });
+  await db.insert(schema.viewingPreferences).values({
+    userId: viewer,
+    region: "US",
+    providerIds: "[8]",
+  });
+  await db.insert(schema.favorites).values(
+    Array.from({ length: 11 }, (_, index) => ({
+      userId: viewer!,
+      tmdbId: index + 1,
+      kind: "watchlist" as const,
+      title: `Availability ${index + 1}`,
+    })),
+  );
+  let lookups: number[] = [];
+  let activeLookups = 0;
+  let peakLookups = 0;
+  const waiting: (() => void)[] = [];
+  beforeProvider = async (path, signal) => {
+    assert.ok(signal, "provider lookup receives the request signal");
+    const id = Number(path.split("/")[2]);
+    lookups.push(id);
+    peakLookups = Math.max(peakLookups, ++activeLookups);
+    await new Promise<void>((resolve) => {
+      waiting.push(() => {
+        activeLookups--;
+        resolve();
+      });
+      const groupSize = Math.min(3, 10 - lookups.length + waiting.length);
+      if (waiting.length === groupSize)
+        for (const complete of waiting.splice(0).reverse()) complete();
+    });
+    if (id === 2 || id === 5)
+      throw Object.assign(new Error("fixture upstream failure"), {
+        status: id === 2 ? 429 : 502,
+      });
+  };
+  const checkedBatch = await (
+    await call(alerts.POST, { action: "check" })
+  ).json();
+  assert.deepEqual(
+    {
+      checked: checkedBatch.checked,
+      failed: checkedBatch.failed,
+      nextOffset: checkedBatch.nextOffset,
+    },
+    { checked: 8, failed: 2, nextOffset: 10 },
+  );
+  assert.equal(peakLookups, 3, "lookups run at bounded concurrency three");
+  assert.deepEqual(
+    lookups,
+    Array.from({ length: 10 }, (_, index) => index + 1),
+    "each page title is requested once; the lookahead title is not fetched",
+  );
+  const batchAlerts = () =>
+    db
+      .select()
+      .from(schema.availabilityAlerts)
+      .where(eq(schema.availabilityAlerts.userId, viewer!))
+      .orderBy(schema.availabilityAlerts.id);
+  const batchSnapshots = () =>
+    db
+      .select()
+      .from(schema.availabilitySnapshots)
+      .where(eq(schema.availabilitySnapshots.userId, viewer!))
+      .orderBy(schema.availabilitySnapshots.tmdbId);
+  assert.deepEqual(
+    (await batchAlerts()).map((row) => row.title),
+    [1, 3, 4, 6, 7, 8, 9, 10].map((id) => `Availability ${id}`),
+    "alerts keep title order despite out-of-order upstream completion",
+  );
+  assert.equal(
+    (await batchSnapshots()).length,
+    8,
+    "only successful lookups update snapshots",
+  );
+  lookups = [];
+  await call(alerts.POST, { action: "check" });
+  assert.equal(
+    (await batchAlerts()).length,
+    8,
+    "repeated batched checks preserve per-title alert idempotence",
+  );
+
+  const snapshotsBeforeAbort = await batchSnapshots();
+  const abort = new AbortController();
+  lookups = [];
+  beforeProvider = async (path, signal) => {
+    assert.ok(signal);
+    lookups.push(Number(path.split("/")[2]));
+    await new Promise<void>((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason), {
+        once: true,
+      });
+      if (lookups.length === 3) abort.abort();
+    });
+  };
+  const abortedRequest = new Request("https://app.invalid/api/alerts", {
+    method: "POST",
+    body: JSON.stringify({ action: "check" }),
+    signal: abort.signal,
+  });
+  await assert.rejects(
+    async () => alerts.POST({ request: abortedRequest } as any),
+    (error: unknown) => error instanceof Error && error.name === "AbortError",
+  );
+  assert.equal(lookups.length, 3, "cancellation stops all queued lookups");
+  assert.deepEqual(
+    await batchSnapshots(),
+    snapshotsBeforeAbort,
+    "cancelled batches do not change snapshots",
+  );
+  assert.equal((await batchAlerts()).length, 8);
+  beforeProvider = undefined;
+
+  // Saved seasons share one availability identity; ordered writes avoid duplicates.
+  await db.delete(schema.favorites).where(eq(schema.favorites.userId, viewer));
+  await db.insert(schema.favorites).values(
+    [1, 2, 3].map((season) => ({
+      userId: viewer!,
+      tmdbId: 20,
+      mediaType: "tv" as const,
+      kind: "watchlist" as const,
+      season,
+      title: `Season ${season}`,
+    })),
+  );
+  const seasonsChecked = await (
+    await call(alerts.POST, { action: "check" })
+  ).json();
+  assert.equal(seasonsChecked.checked, 3);
+  assert.equal((await batchSnapshots()).length, 9);
+  assert.equal(
+    (await batchAlerts()).length,
+    9,
+    "multiple saved seasons create one availability event",
+  );
+  console.log(
+    "Availability bounded concurrency, ordering, failures, cancellation, and shared seasons: passed",
   );
 } finally {
   await pg.close();

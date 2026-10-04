@@ -1,9 +1,30 @@
 import Trending from "./Trending";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { authClient } from "../lib/auth/client";
 import QueryProvider from "./QueryProvider";
-import CurrentlyWatching from "./CurrentlyWatching";
 import styles from "./WatchActivity.module.css";
+
+const CurrentlyWatching = lazy(() =>
+  import("./CurrentlyWatching").catch(() => ({ default: WatchingLoadError })),
+);
+
+function WatchingLoadError() {
+  return (
+    <div
+      role="alert"
+      className="border-border/60 mb-12 rounded-2xl border p-8 sm:mb-16"
+    >
+      <p className="text-danger">Could not load your shows.</p>
+      <a
+        href="/"
+        data-astro-reload
+        className="text-accent mt-2 inline-block font-semibold underline"
+      >
+        Reload page
+      </a>
+    </div>
+  );
+}
 
 export default function Home() {
   const { data: session } = authClient.useSession();
@@ -41,7 +62,19 @@ export default function Home() {
               </a>
             </div>
           </header>
-          <CurrentlyWatching key={user.id} />
+          <Suspense
+            key={user.id}
+            fallback={
+              <div
+                role="status"
+                className="text-text-muted border-border/60 mb-12 rounded-2xl border p-8 sm:mb-16"
+              >
+                Loading your shows…
+              </div>
+            }
+          >
+            <CurrentlyWatching />
+          </Suspense>
         </>
       ) : (
         <header className="flex flex-col items-center gap-3 pt-2 pb-8 text-center sm:gap-4 sm:pt-10 sm:pb-12">

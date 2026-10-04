@@ -61,7 +61,11 @@ export function parseEntry(
   | { ok: false; error: string } {
   const raw = (body ?? {}) as Record<string, unknown>;
 
-  if (!Number.isInteger(raw.tmdbId) || (raw.tmdbId as number) <= 0)
+  if (
+    !Number.isInteger(raw.tmdbId) ||
+    (raw.tmdbId as number) <= 0 ||
+    (raw.tmdbId as number) > 2_147_483_647
+  )
     return { ok: false, error: "tmdbId must be a positive integer" };
   const title = str(raw.title, 300);
   if (!title) return { ok: false, error: "title is required" };
@@ -78,7 +82,9 @@ export function parseEntry(
   const slot = (value: unknown) =>
     value == null
       ? null
-      : Number.isInteger(value) && (value as number) >= 0
+      : Number.isInteger(value) &&
+          (value as number) >= 0 &&
+          (value as number) <= 2_147_483_647
         ? (value as number)
         : undefined;
   const season = slot(raw.season);

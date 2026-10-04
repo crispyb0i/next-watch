@@ -207,7 +207,7 @@ function TransferInner() {
           type="file"
           accept=".json,.csv"
           disabled={busy}
-          className="mt-2 block"
+          className="mt-2 block w-full min-w-0"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) void read(file);

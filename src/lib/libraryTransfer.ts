@@ -39,6 +39,7 @@ export function parseLibrary(value: unknown): LibraryImport {
       typeof row !== "object" ||
       !Number.isSafeInteger(row.id) ||
       row.id <= 0 ||
+      row.id > 2_147_483_647 ||
       typeof row.title !== "string" ||
       !row.title.trim() ||
       row.title.length > 300 ||
