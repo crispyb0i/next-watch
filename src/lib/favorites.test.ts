@@ -9,7 +9,7 @@ registerHooks({
       return {
         url:
           "data:text/javascript,export const getJWTToken = async () =>" +
-          " globalThis.__jwt ?? null;",
+          " globalThis.__getJWT ? globalThis.__getJWT() : globalThis.__jwt ?? null;",
         shortCircuit: true,
       };
     }
@@ -32,8 +32,15 @@ let ok = true;
   return { ok, json: async () => [] };
 };
 
-const { getFavorites, isFavorite, saved, toggleFavorite, _resetForTest } =
-  await import("./favorites.ts");
+const {
+  getFavorites,
+  isFavorite,
+  saved,
+  toggleFavorite,
+  reloadFavorites,
+  setFavoritesUserId,
+  _resetForTest,
+} = await import("./favorites.ts");
 
 const movie = { id: 1, title: "Dune", poster: null };
 
@@ -178,4 +185,212 @@ store.set("favorites", "not json");
 _resetForTest();
 assert.deepEqual(getFavorites(), []);
 
-console.log("favorites ok");
+// --- account rows never become guest saves or migrate to the next account.
+const jwtFor = (sub: string) =>
+  `header.${Buffer.from(JSON.stringify({ sub })).toString("base64url")}.signature`;
+const accountA = {
+  id: 101,
+  title: "A private watchlist",
+  poster: null,
+  kind: "watchlist" as const,
+};
+const accountB = { id: 202, title: "B favorite", poster: null };
+const guest = { id: 303, title: "Guest save", poster: null };
+const writes: { token: string; method: string; id: number }[] = [];
+const accountFetch: typeof fetch = async (_url, init) => {
+  const authorization = (init?.headers as Record<string, string>).authorization;
+  const method = init?.method ?? "GET";
+  if (method !== "GET") {
+    const body = init?.body ? JSON.parse(String(init.body)) : null;
+    writes.push({ token: authorization, method, id: body?.id ?? 0 });
+    return new Response("{}");
+  }
+  return new Response(
+    JSON.stringify(
+      authorization === `Bearer ${jwtFor("a")}` ? [accountA] : [accountB],
+    ),
+  );
+};
+store.clear();
+_resetForTest();
+(globalThis as any).__jwt = jwtFor("a");
+globalThis.fetch = accountFetch;
+await reloadFavorites();
+assert.deepEqual(getFavorites(), [accountA]);
+(globalThis as any).__jwt = null;
+await toggleFavorite(guest);
+assert.deepEqual(
+  JSON.parse(store.get("favorites")!),
+  [guest],
+  "signed-out writes contain no former account rows",
+);
+(globalThis as any).__jwt = jwtFor("b");
+await reloadFavorites();
+assert.deepEqual(
+  writes,
+  [{ token: `Bearer ${jwtFor("b")}`, method: "POST", id: guest.id }],
+  "only guest data migrates to the next account",
+);
+assert.deepEqual(
+  JSON.parse(store.get("favorites")!),
+  [],
+  "successful guest imports clear their local copy",
+);
+assert.deepEqual(getFavorites(), [accountB]);
+
+// Direct switches must decide add/remove using the new account's rows.
+(globalThis as any).__jwt = jwtFor("a");
+await reloadFavorites();
+(globalThis as any).__jwt = jwtFor("b");
+writes.length = 0;
+await toggleFavorite(accountA);
+assert.equal(
+  writes[0].method,
+  "POST",
+  "an A-only favorite is added to B, not deleted based on A's stale cache",
+);
+assert.equal(writes[0].token, `Bearer ${jwtFor("b")}`);
+
+// A late A load cannot overwrite B after the session observer has switched.
+store.clear();
+_resetForTest();
+let releaseLoad!: (response: Response) => void;
+let startedLoad!: () => void;
+const loadStarted = new Promise<void>((resolve) => {
+  startedLoad = resolve;
+});
+(globalThis as any).__jwt = jwtFor("a");
+globalThis.fetch = async (url, init) => {
+  if (
+    (init?.headers as Record<string, string>).authorization ===
+    `Bearer ${jwtFor("a")}`
+  ) {
+    startedLoad();
+    return new Promise<Response>((resolve) => {
+      releaseLoad = resolve;
+    });
+  }
+  return accountFetch(url, init);
+};
+const oldLoad = reloadFavorites();
+await loadStarted;
+(globalThis as any).__jwt = jwtFor("b");
+setFavoritesUserId("b");
+assert.deepEqual(
+  getFavorites(),
+  [],
+  "session changes clear private rows immediately",
+);
+await reloadFavorites();
+releaseLoad(new Response(JSON.stringify([accountA])));
+await oldLoad;
+assert.deepEqual(
+  getFavorites(),
+  [accountB],
+  "late A response cannot replace B's cache",
+);
+
+// A late failed delete cannot restore A's removed item into B's cache.
+(globalThis as any).__jwt = jwtFor("a");
+globalThis.fetch = accountFetch;
+await reloadFavorites();
+let releaseDelete!: (response: Response) => void;
+let startedDelete!: () => void;
+const deleteStarted = new Promise<void>((resolve) => {
+  startedDelete = resolve;
+});
+globalThis.fetch = async (url, init) => {
+  if (init?.method === "DELETE") {
+    startedDelete();
+    return new Promise<Response>((resolve) => {
+      releaseDelete = resolve;
+    });
+  }
+  return accountFetch(url, init);
+};
+const oldDelete = toggleFavorite(accountA);
+await deleteStarted;
+(globalThis as any).__jwt = jwtFor("b");
+setFavoritesUserId("b");
+await reloadFavorites();
+releaseDelete(new Response("{}", { status: 500 }));
+assert.equal((await oldDelete).ok, false);
+assert.deepEqual(
+  getFavorites(),
+  [accountB],
+  "old account rollback cannot contaminate the new cache",
+);
+
+// If auth changes during a request without an observer, response checks still clear A.
+(globalThis as any).__jwt = jwtFor("a");
+setFavoritesUserId("a");
+await reloadFavorites();
+let releaseUnobserved!: (response: Response) => void;
+let startedUnobserved!: () => void;
+const unobservedStarted = new Promise<void>((resolve) => {
+  startedUnobserved = resolve;
+});
+globalThis.fetch = async (url, init) => {
+  if (
+    (init?.headers as Record<string, string>).authorization ===
+    `Bearer ${jwtFor("a")}`
+  ) {
+    startedUnobserved();
+    return new Promise<Response>((resolve) => {
+      releaseUnobserved = resolve;
+    });
+  }
+  return accountFetch(url, init);
+};
+const unobservedLoad = reloadFavorites();
+await unobservedStarted;
+(globalThis as any).__jwt = jwtFor("b");
+releaseUnobserved(new Response(JSON.stringify([accountA])));
+await unobservedLoad;
+await reloadFavorites();
+assert.deepEqual(getFavorites(), [accountB]);
+// A click whose initial token is delayed must not be rebound to a new account.
+(globalThis as any).__jwt = jwtFor("a");
+globalThis.fetch = accountFetch;
+await reloadFavorites();
+let releaseToken!: (jwt: string) => void;
+let startedToken!: () => void;
+const tokenStarted = new Promise<void>((resolve) => {
+  startedToken = resolve;
+});
+(globalThis as any).__getJWT = () => {
+  startedToken();
+  delete (globalThis as any).__getJWT;
+  return new Promise<string>((resolve) => {
+    releaseToken = resolve;
+  });
+};
+writes.length = 0;
+const oldClick = toggleFavorite(accountA);
+await tokenStarted;
+(globalThis as any).__jwt = jwtFor("b");
+setFavoritesUserId("b");
+await reloadFavorites();
+releaseToken(jwtFor("a"));
+assert.equal(
+  (await oldClick).ok,
+  false,
+  "an old account's click is cancelled during token acquisition",
+);
+assert.deepEqual(
+  writes,
+  [],
+  "an old click never writes with the new account's token",
+);
+assert.deepEqual(getFavorites(), [accountB]);
+
+// Token outages preserve account ownership and are handled by fire-and-forget loads.
+(globalThis as any).__getJWT = () => {
+  throw new TypeError("Auth unavailable");
+};
+await reloadFavorites();
+assert.equal((await toggleFavorite(accountA)).ok, false);
+assert.deepEqual(getFavorites(), [accountB]);
+assert.deepEqual(JSON.parse(store.get("favorites") ?? "[]"), []);
+delete (globalThis as any).__getJWT;
+console.log("favorites ok (including account transitions and stale responses)");

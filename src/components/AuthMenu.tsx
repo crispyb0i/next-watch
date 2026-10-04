@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { authClient, syncCurrentProfile } from "../lib/auth/client";
+import { setFavoritesUserId } from "../lib/favorites";
 
 function initials(name?: string | null, email?: string | null) {
   const source = name?.trim() || email?.trim() || "";
@@ -13,6 +14,10 @@ export default function AuthMenu() {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isPending) setFavoritesUserId(session?.user.id ?? null);
+  }, [isPending, session?.user.id]);
 
   useEffect(() => {
     if (session) void syncCurrentProfile(session.user);

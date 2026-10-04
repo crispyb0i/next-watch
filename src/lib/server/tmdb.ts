@@ -55,17 +55,61 @@ export class TmdbError extends Error {
 }
 
 // Bounded warm-instance cache; the API response also uses the CDN cache.
+const cacheLimit = 300;
 const cache = new Map<string, { data: unknown; expires: number }>();
+const pending = new Map<string, Promise<unknown>>();
+
+// A disconnected viewer stops waiting without cancelling other viewers' data.
+function forCaller<T>(request: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return request;
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener("abort", abort);
+      reject(new TmdbError(503));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    request.then(
+      (data) => {
+        signal.removeEventListener("abort", abort);
+        resolve(data);
+      },
+      (error) => {
+        signal.removeEventListener("abort", abort);
+        reject(error);
+      },
+    );
+    if (signal.aborted) abort();
+  });
+}
 export async function serverTmdb<T>(
   path: string,
   params: Record<string, string> = {},
   signal?: AbortSignal,
 ): Promise<T> {
   if (!validateTmdb(path, params)) throw new TmdbError(400);
+  if (signal?.aborted) throw new TmdbError(503);
   const key =
     path + "?" + new URLSearchParams(Object.entries(params).sort()).toString();
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.data as T;
+  const existing = pending.get(key);
+  if (existing) return forCaller(existing as Promise<T>, signal);
+  const request = loadTmdb<T>(path, params).then((data) => {
+    if (cache.size >= cacheLimit) cache.delete(cache.keys().next().value!);
+    cache.set(key, { data, expires: Date.now() + 5 * 60_000 });
+    return data;
+  });
+  const settled = request.finally(() => {
+    if (pending.get(key) === settled) pending.delete(key);
+  });
+  if (pending.size < cacheLimit) pending.set(key, settled);
+  return forCaller(settled, signal);
+}
+
+async function loadTmdb<T>(
+  path: string,
+  params: Record<string, string>,
+): Promise<T> {
   const apiKey =
     import.meta.env?.TMDB_API_KEY ??
     process.env.TMDB_API_KEY ??
@@ -78,9 +122,8 @@ export async function serverTmdb<T>(
   url.searchParams.set("api_key", apiKey);
   let response: Response;
   try {
-    const timeout = AbortSignal.timeout(10_000);
     response = await fetch(url, {
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+      signal: AbortSignal.timeout(10_000),
     });
   } catch {
     throw new TmdbError(503);
@@ -89,8 +132,5 @@ export async function serverTmdb<T>(
     throw new TmdbError(
       response.status === 404 ? 404 : response.status === 429 ? 429 : 502,
     );
-  const data: T = await response.json();
-  if (cache.size >= 300) cache.delete(cache.keys().next().value!);
-  cache.set(key, { data, expires: Date.now() + 5 * 60_000 });
-  return data;
+  return response.json() as Promise<T>;
 }

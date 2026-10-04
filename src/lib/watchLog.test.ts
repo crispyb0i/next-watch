@@ -23,6 +23,21 @@ assert.equal(parseEntry({ ...base, watchedOn: "2999-01-01" }).ok, false);
 assert.ok(parseEntry({ ...base, watchedOn: todayISO() }).ok);
 assert.equal(parseEntry(null).ok, false);
 
+// Date.parse normalizes impossible days; reject them before PostgreSQL writes.
+for (const watchedOn of [
+  "2025-02-29",
+  "2024-02-30",
+  "2024-04-31",
+  "1900-02-29",
+  "2024-00-01",
+  "2024-01-00",
+  "2024-13-01",
+  "0000-01-01",
+])
+  assert.equal(parseEntry({ ...base, watchedOn }).ok, false, watchedOn);
+for (const watchedOn of ["2024-02-29", "2000-02-29", "2024-04-30"])
+  assert.equal(parseEntry({ ...base, watchedOn }).ok, true, watchedOn);
+
 // Long text is truncated, not rejected.
 const long = parseEntry({ ...base, notes: "x".repeat(9000) });
 assert.ok(long.ok);
