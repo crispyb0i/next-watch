@@ -27,3 +27,6 @@ pnpm-debug.log*
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
 .vercel
+
+# Disposable local E2E evidence (no app credentials)
+.e2e-artifacts/

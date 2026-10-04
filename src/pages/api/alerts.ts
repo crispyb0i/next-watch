@@ -97,85 +97,103 @@ export const POST: APIRoute = withSchemaAvailability(async ({ request }) => {
     .offset(offset);
   let failed = 0,
     checked = 0;
-  for (const item of items.slice(0, 10)) {
-    try {
-      const response = await serverTmdb<WatchProvidersResponse>(
-        `/${item.mediaType === "tv" ? "tv" : "movie"}/${item.tmdbId}/watch/providers`,
-      );
-      const country = response.results[preferences.region];
-      const providers = [
-        ...new Map(
-          [
-            ...(country?.flatrate ?? []),
-            ...(country?.free ?? []),
-            ...(country?.ads ?? []),
-          ].map((provider) => [provider.provider_id, provider]),
-        ).values(),
-      ];
-      const where = and(
-        eq(availabilitySnapshots.userId, id),
-        eq(availabilitySnapshots.tmdbId, item.tmdbId),
-        eq(availabilitySnapshots.mediaType, item.mediaType),
-        eq(availabilitySnapshots.region, preferences.region),
-      );
-      const [previous] = await db
-        .select()
-        .from(availabilitySnapshots)
-        .where(where);
-      const before: number[] = previous ? JSON.parse(previous.providerIds) : [];
-      const added = providers.filter(
-        (provider) =>
-          selected.includes(provider.provider_id) &&
-          !before.includes(provider.provider_id),
-      );
-      const snapshot = {
-        userId: id,
-        tmdbId: item.tmdbId,
-        mediaType: item.mediaType,
-        region: preferences.region,
-        providerIds: JSON.stringify(
-          providers
-            .filter((provider) => selected.includes(provider.provider_id))
-            .map((provider) => provider.provider_id),
+  const titles = items.slice(0, 10);
+  for (let start = 0; start < titles.length; start += 3) {
+    request.signal.throwIfAborted();
+    const batch = titles.slice(start, start + 3);
+    const availability = await Promise.allSettled(
+      batch.map((item) =>
+        serverTmdb<WatchProvidersResponse>(
+          `/${item.mediaType === "tv" ? "tv" : "movie"}/${item.tmdbId}/watch/providers`,
+          {},
+          request.signal,
         ),
-        checkedAt: new Date(),
-      };
-      const update = db
-        .insert(availabilitySnapshots)
-        .values(snapshot)
-        .onConflictDoUpdate({
-          target: [
-            availabilitySnapshots.userId,
-            availabilitySnapshots.tmdbId,
-            availabilitySnapshots.mediaType,
-            availabilitySnapshots.region,
-          ],
-          set: {
-            providerIds: snapshot.providerIds,
-            checkedAt: snapshot.checkedAt,
-          },
-        });
-      if (added.length)
-        await db.batch([
-          update,
-          db
-            .insert(availabilityAlerts)
-            .values({
-              userId: id,
-              eventKey: `${item.mediaType}:${item.tmdbId}:${preferences.region}:${previous?.checkedAt.toISOString() ?? "initial"}:${added
-                .map((provider) => provider.provider_id)
-                .sort()
-                .join(",")}`,
-              title: item.title,
-              href: `/${item.mediaType === "tv" ? "tv" : "movie"}?id=${item.tmdbId}`,
-              message: `${previous ? "Now available" : "Available"} on ${added.map((provider) => provider.provider_name).join(", ")} in ${preferences.region}. Availability can change.`,
-            })
-            .onConflictDoNothing(),
-        ]);
-      else await update;
-      checked++;
-    } catch {
-      failed++;
+      ),
+    );
+    // Keep snapshot/alert writes ordered, including multiple saved TV seasons.
+    for (const [index, item] of batch.entries()) {
+      request.signal.throwIfAborted();
+      try {
+        const result = availability[index];
+        if (result.status === "rejected") throw result.reason;
+        const response = result.value;
+        const country = response.results[preferences.region];
+        const providers = [
+          ...new Map(
+            [
+              ...(country?.flatrate ?? []),
+              ...(country?.free ?? []),
+              ...(country?.ads ?? []),
+            ].map((provider) => [provider.provider_id, provider]),
+          ).values(),
+        ];
+        const where = and(
+          eq(availabilitySnapshots.userId, id),
+          eq(availabilitySnapshots.tmdbId, item.tmdbId),
+          eq(availabilitySnapshots.mediaType, item.mediaType),
+          eq(availabilitySnapshots.region, preferences.region),
+        );
+        const [previous] = await db
+          .select()
+          .from(availabilitySnapshots)
+          .where(where);
+        const before: number[] = previous
+          ? JSON.parse(previous.providerIds)
+          : [];
+        const added = providers.filter(
+          (provider) =>
+            selected.includes(provider.provider_id) &&
+            !before.includes(provider.provider_id),
+        );
+        const snapshot = {
+          userId: id,
+          tmdbId: item.tmdbId,
+          mediaType: item.mediaType,
+          region: preferences.region,
+          providerIds: JSON.stringify(
+            providers
+              .filter((provider) => selected.includes(provider.provider_id))
+              .map((provider) => provider.provider_id),
+          ),
+          checkedAt: new Date(),
+        };
+        const update = db
+          .insert(availabilitySnapshots)
+          .values(snapshot)
+          .onConflictDoUpdate({
+            target: [
+              availabilitySnapshots.userId,
+              availabilitySnapshots.tmdbId,
+              availabilitySnapshots.mediaType,
+              availabilitySnapshots.region,
+            ],
+            set: {
+              providerIds: snapshot.providerIds,
+              checkedAt: snapshot.checkedAt,
+            },
+          });
+        if (added.length)
+          await db.batch([
+            update,
+            db
+              .insert(availabilityAlerts)
+              .values({
+                userId: id,
+                eventKey: `${item.mediaType}:${item.tmdbId}:${preferences.region}:${previous?.checkedAt.toISOString() ?? "initial"}:${added
+                  .map((provider) => provider.provider_id)
+                  .sort()
+                  .join(",")}`,
+                title: item.title,
+                href: `/${item.mediaType === "tv" ? "tv" : "movie"}?id=${item.tmdbId}`,
+                message: `${previous ? "Now available" : "Available"} on ${added.map((provider) => provider.provider_name).join(", ")} in ${preferences.region}. Availability can change.`,
+              })
+              .onConflictDoNothing(),
+          ]);
+        else await update;
+        checked++;
+      } catch {
+        failed++;
+      }
     }
   }
   return json({

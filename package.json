@@ -19,7 +19,9 @@
     "test": "node scripts/test.mjs",
     "test:integration": "node --experimental-strip-types scripts/test-integration.mjs",
     "lint": "astro check && prettier --check src scripts package.json",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node scripts/e2e/run.mjs",
+    "test:integration:local": "node scripts/e2e/run.mjs --integration-only"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.5",

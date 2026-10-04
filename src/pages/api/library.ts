@@ -23,9 +23,11 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Import at most 10 entries per request." }, 400);
   if (!(await syncUser(request, id)))
     return json({ error: "Complete your account first." }, 403);
-  let imported = 0;
+  // Build every write before executing one transaction, so a failed entry
+  // cannot leave part of this request imported but absent from its count.
+  const inserts = [];
   for (const item of library.favorites) {
-    const rows = await db
+    const insert = db
       .insert(favorites)
       .values({
         userId: id,
@@ -41,9 +43,22 @@ export const POST: APIRoute = async ({ request }) => {
       })
       .onConflictDoNothing()
       .returning({ id: favorites.tmdbId });
-    imported += rows.length;
+    inserts.push(insert);
   }
+  const pendingWatched = new Set<string>();
   for (const entry of library.watched) {
+    // Match the existing-row identity below; display metadata is not part of
+    // watch history identity, including within this still-uncommitted batch.
+    const identity = JSON.stringify([
+      entry.tmdbId,
+      entry.mediaType,
+      entry.watchedOn,
+      entry.title,
+      entry.season,
+      entry.episode,
+      entry.notes,
+    ]);
+    if (pendingWatched.has(identity)) continue;
     const existing = await db
       .select({ id: watchLog.id })
       .from(watchLog)
@@ -67,6 +82,7 @@ export const POST: APIRoute = async ({ request }) => {
       )
       .limit(1);
     if (existing.length) continue;
+    pendingWatched.add(identity);
     const bytes = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(JSON.stringify(entry)),
@@ -74,12 +90,16 @@ export const POST: APIRoute = async ({ request }) => {
     const importKey = Array.from(new Uint8Array(bytes), (value) =>
       value.toString(16).padStart(2, "0"),
     ).join("");
-    const rows = await db
+    const insert = db
       .insert(watchLog)
       .values({ ...entry, userId: id, importKey })
       .onConflictDoNothing()
       .returning({ id: watchLog.id });
-    imported += rows.length;
+    inserts.push(insert);
   }
+  const [first, ...rest] = inserts;
+  if (!first) return json({ imported: 0 });
+  const results = await db.batch([first, ...rest]);
+  const imported = results.reduce((total, rows) => total + rows.length, 0);
   return json({ imported });
 };

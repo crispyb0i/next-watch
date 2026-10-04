@@ -61,6 +61,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (
     !Number.isSafeInteger(item?.tmdbId) ||
     Number(item?.tmdbId) <= 0 ||
+    Number(item?.tmdbId) > 2_147_483_647 ||
     typeof item?.title !== "string"
   ) {
     return json({ error: "tmdbId and title are required" }, 400);
