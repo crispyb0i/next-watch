@@ -41,7 +41,9 @@ export const todayISO = () => new Date().toISOString().slice(0, 10);
 const isDate = (value: unknown) =>
   typeof value === "string" &&
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-  !Number.isNaN(Date.parse(value));
+  !value.startsWith("0000-") &&
+  !Number.isNaN(Date.parse(value)) &&
+  new Date(value).toISOString().slice(0, 10) === value;
 
 const str = (value: unknown, max: number) =>
   typeof value === "string" && value.trim() !== ""

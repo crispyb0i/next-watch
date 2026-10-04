@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AuthGate from "./AuthGate";
 import { accountApi } from "../lib/accountApi";
 import {
@@ -18,6 +18,12 @@ function download(name: string, text: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function TransferInner() {
+  const requests = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    requests.current = controller;
+    return () => controller.abort();
+  }, []);
   const [preview, setPreview] = useState<LibraryImport | null>(null),
     [error, setError] = useState(""),
     [status, setStatus] = useState(""),
@@ -83,15 +89,21 @@ function TransferInner() {
     }
   }
   async function exportLibrary() {
+    const signal = requests.current?.signal;
     setBusy(true);
     setError("");
     try {
-      const favorites =
-        await accountApi<LibraryImport["favorites"]>("/api/favorites");
+      const favorites = await accountApi<LibraryImport["favorites"]>(
+        "/api/favorites",
+        undefined,
+        signal,
+      );
       const watched: WatchEntry[] = [];
       for (let offset = 0; ; offset += 100) {
         const page = await accountApi<WatchEntry[]>(
           `/api/watched?limit=100&offset=${offset}`,
+          undefined,
+          signal,
         );
         watched.push(...page);
         if (page.length < 100) break;
@@ -112,6 +124,7 @@ function TransferInner() {
       );
       setStatus("Export downloaded.");
     } catch (e) {
+      if (signal?.aborted) return;
       setError(e instanceof Error ? e.message : "Export failed.");
     } finally {
       setBusy(false);
@@ -119,6 +132,7 @@ function TransferInner() {
   }
   async function commit() {
     if (!preview) return;
+    const signal = requests.current?.signal;
     setBusy(true);
     setError("");
     let imported = 0;
@@ -134,6 +148,7 @@ function TransferInner() {
           const result = await accountApi<{ imported: number }>(
             "/api/library",
             batch,
+            signal,
           );
           imported += result.imported;
           setStatus(`Imported ${imported} entries…`);
@@ -145,6 +160,7 @@ function TransferInner() {
         `Imported ${imported} new entries. Previously imported entries were skipped.`,
       );
     } catch (e) {
+      if (signal?.aborted) return;
       setError(
         `${e instanceof Error ? e.message : "Import failed."} ${imported} entries were imported; retrying safely skips these entries.`,
       );

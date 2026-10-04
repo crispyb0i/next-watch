@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AuthGate from "./AuthGate";
 import { accountApi } from "../lib/accountApi";
 import { getProviderCatalog, type WatchProvider } from "../lib/tmdb";
@@ -16,6 +16,7 @@ interface Alert {
   readAt: string | null;
 }
 function AlertsInner() {
+  const requests = useRef<AbortController | null>(null);
   const [preferences, setPreferences] = useState<Preferences>({
     region: "US",
     providerIds: [],
@@ -31,13 +32,18 @@ function AlertsInner() {
     const data = await accountApi<{
       preferences: Preferences;
       alerts: Alert[];
-    }>("/api/alerts");
+    }>("/api/alerts", undefined, requests.current?.signal);
     setPreferences(data.preferences);
     setAlerts(data.alerts);
     setLoaded(true);
   }
   useEffect(() => {
-    void reload().catch((e) => setError(e.message));
+    const controller = new AbortController();
+    requests.current = controller;
+    void reload().catch((e) => {
+      if (!controller.signal.aborted) setError(e.message);
+    });
+    return () => controller.abort();
   }, []);
   useEffect(() => {
     let active = true;
@@ -57,38 +63,47 @@ function AlertsInner() {
     };
   }, [preferences.region]);
   async function save() {
+    const signal = requests.current?.signal;
     setBusy(true);
     setError("");
     try {
-      await accountApi("/api/alerts", {
-        action: "preferences",
-        ...preferences,
-      });
+      await accountApi(
+        "/api/alerts",
+        { action: "preferences", ...preferences },
+        signal,
+      );
       localStorage.setItem("next-watch-region", preferences.region);
       setStatus("Preferences saved.");
     } catch (e) {
+      if (signal?.aborted) return;
       setError(e instanceof Error ? e.message : "Could not save.");
     } finally {
       setBusy(false);
     }
   }
   async function check() {
+    const signal = requests.current?.signal;
     setBusy(true);
     setError("");
     let offset: number | null = 0,
       total = 0,
       failed = 0;
     try {
-      await accountApi("/api/alerts", {
-        action: "preferences",
-        ...preferences,
-      });
+      await accountApi(
+        "/api/alerts",
+        { action: "preferences", ...preferences },
+        signal,
+      );
       while (offset !== null) {
         const result: {
           checked: number;
           failed: number;
           nextOffset: number | null;
-        } = await accountApi("/api/alerts", { action: "check", offset });
+        } = await accountApi(
+          "/api/alerts",
+          { action: "check", offset },
+          signal,
+        );
         total += result.checked;
         failed += result.failed;
         offset = result.nextOffset;
@@ -99,6 +114,7 @@ function AlertsInner() {
         `Checked ${total} titles at ${new Date().toLocaleString()}.${failed ? ` ${failed} could not be checked; try again.` : ""}`,
       );
     } catch (e) {
+      if (signal?.aborted) return;
       setError(
         e instanceof Error ? e.message : "Could not check availability.",
       );
@@ -208,7 +224,11 @@ function AlertsInner() {
           className="underline"
           onClick={() => {
             setBusy(true);
-            void accountApi("/api/alerts", { action: "read" })
+            void accountApi(
+              "/api/alerts",
+              { action: "read" },
+              requests.current?.signal,
+            )
               .then(reload)
               .catch((e) => setError(e.message))
               .finally(() => setBusy(false));

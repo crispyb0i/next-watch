@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { Fragment, useEffect, type ReactNode } from "react";
 import { authClient } from "../lib/auth/client";
 import { signInHref } from "../lib/auth/gate";
 import { PosterGridSkeleton } from "./Skeleton";
@@ -21,5 +21,5 @@ export default function AuthGate({
   }, [isPending, session]);
 
   if (isPending || !session) return <>{fallback}</>;
-  return <>{children}</>;
+  return <Fragment key={session.user.id}>{children}</Fragment>;
 }
